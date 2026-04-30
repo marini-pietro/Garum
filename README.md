@@ -1,30 +1,27 @@
 # Garum
 
-**Notice**: This app does not provide nor wants to provide medical information.  
-The app will feature numbers based on recommendations and guidelines based on the opinions of health experts but, before making any significant lifestyle change please first seek the medical opinion of a professional.  
-The app and its creators is not responsible for any event result of misunderstanding and/or not following the previous directions.  
-The purpose of this app is just to track data and compute trends related to nutrition.  
+> **Notice:** Garum does not provide medical advice and is not intended to do so.
+> The app displays numbers derived from guidelines and recommendations published by health experts.
+> Before making any significant lifestyle change, please consult a qualified medical professional.
+> The app and its creators accept no responsibility for any outcome resulting from the misuse of, or failure to follow, the above guidance.
+> The sole purpose of this app is to track data and compute trends related to nutrition.
 
-## Purpose/Elevator pitch
+## Purpose
 
-Personally, in university, constantly bouncing off of lectures, associations, homework, side projects, etc... I had a difficult time keeping track of my nutrition and what I spend for it.   
-To fully dedicate your person to those activities a good nutrition is key but keeping track of it mentally or with pen and paper gets imprecise very fast.  
-there is when this app comes into play, greatly simplifying keeping track of the data and, among other features, providing a rough (non medical) evaluation on macronutrients intake based on experts opinions (e.g. WHO).
+As a university student juggling lectures, clubs, homework, and side projects, I found it increasingly difficult to keep track of my nutrition and food spending. Good nutrition is essential for sustaining that level of activity, yet tracking it mentally or on paper quickly becomes inaccurate and tedious. Garum was built to solve that problem — it simplifies data entry and, among other features, provides a rough (non-medical) evaluation of macronutrient intake based on guidelines from recognised health authorities such as the [World Health Organization (WHO)](https://www.who.int/) and the [American Heart Association (AHA)](https://www.heart.org/).
 
 ## Features
 
-- Garum is natively cross platform being built on top of the Flet framework
-- Encrypted backups and data synchronization using Google Drive remote cloud storage
-- Interactive graphs based on a time span, singular macronutrient or money spent
-- Evaluations in the form of percentages of macronutrients consumed with respect to suggested limits (e.g. 40% of 25g of sugar) (limits and sources are customizable, both manually or switching between different sources like WHO or AHA)
+- **Cross-platform by design** — built on top of the [Flet](https://flet.dev/) framework, Garum runs natively on multiple platforms without extra effort.
+- **Encrypted backups & sync** — your data is backed up and synchronised securely via Google Drive cloud storage.
+- **Interactive graphs** — visualise your data by time span, individual macronutrient, or money spent.
+- **Macronutrient evaluations** — see what percentage of a recommended limit you have consumed (e.g. 40 % of the suggested 25 g of sugar). Limits and their sources are fully customisable — set them manually or choose from built-in presets such as [WHO](https://www.who.int/) or [AHA](https://www.heart.org/) guidelines.
 
 ## Contributing
 
-See dedicated file.  
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before opening an issue or submitting a pull request.
 
 ## License
 
-See dedicated file.
-
-
+Garum is distributed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
 
