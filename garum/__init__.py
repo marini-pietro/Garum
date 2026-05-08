@@ -1,0 +1,1 @@
+"""Garum application package."""

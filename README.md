@@ -40,6 +40,15 @@ Start with this [video](https://www.youtube.com/watch?v=ICZww0DtQKk).
 Contributions are welcome and much appreciated.  
 Please read the [contributing guide](CONTRIBUTING.md) before opening an issue or submitting a pull request.
 
+## Getting started
+
+To run the app locally:
+
+```bash
+python -m pip install -e .
+python main.py
+```
+
 ## License
 
-Garum is distributed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
+Garum is distributed under the GNU General Public License v3.0. See the [LICENSE](LICENSE.txt) file for details.
