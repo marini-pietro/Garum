@@ -7,7 +7,9 @@ from pathlib import Path
 import flet as ft
 
 from garum.models import MealEntry
+from garum.settings_handler import load_settings
 from garum.storage import MealEntryStore
+from garum import theme
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -106,16 +108,18 @@ def _entry_summary(entry: MealEntry) -> tuple[str, str, str, str]:
 
 
 def _surface_container(content: ft.Control, *, padding: int = 20) -> ft.Container:
+    palette = theme.active_palette
     return ft.Container(
         content=content,
         padding=padding,
         border_radius=24,
-        bgcolor="#FFFDF8",
-        border=ft.border.all(1, "#E4DDCF"),
+        bgcolor=palette.surface,
+        border=ft.border.all(1, palette.border),
     )
 
 
 def _stat_card(title: str, value: str, detail: str, icon: str, tint: str) -> ft.Container:
+    palette = theme.active_palette
     return _surface_container(
         ft.Column(
             [
@@ -129,12 +133,12 @@ def _stat_card(title: str, value: str, detail: str, icon: str, tint: str) -> ft.
                             bgcolor=tint,
                             content=ft.Icon(icon, color=ft.Colors.WHITE),
                         ),
-                        ft.Text(title, size=12, color="#6A6255", weight=ft.FontWeight.W_600),
+                        ft.Text(title, size=12, color=palette.muted, weight=ft.FontWeight.W_600),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
-                ft.Text(value, size=30, weight=ft.FontWeight.BOLD, color="#1E1B17"),
-                ft.Text(detail, size=12, color="#7A7266"),
+                ft.Text(value, size=30, weight=ft.FontWeight.BOLD, color=palette.on_surface),
+                ft.Text(detail, size=12, color=palette.muted),
             ],
             spacing=10,
         ),
@@ -143,6 +147,7 @@ def _stat_card(title: str, value: str, detail: str, icon: str, tint: str) -> ft.
 
 
 def _progress_card(title: str, value: float, target_label: str, tint: str) -> ft.Container:
+    palette = theme.active_palette
     percent = max(0.0, min(value, 1.0))
     return _surface_container(
         ft.Column(
@@ -150,12 +155,12 @@ def _progress_card(title: str, value: float, target_label: str, tint: str) -> ft
                 ft.Row(
                     [
                         ft.Text(title, size=15, weight=ft.FontWeight.W_700),
-                        ft.Text(f"{int(percent * 100)}%", size=13, color="#746B5E"),
+                        ft.Text(f"{int(percent * 100)}%", size=13, color=palette.muted),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
-                ft.ProgressBar(value=percent, color=tint, bgcolor="#ECE3D3"),
-                ft.Text(target_label, size=12, color="#7A7266"),
+                ft.ProgressBar(value=percent, color=tint, bgcolor=palette.surface_variant),
+                ft.Text(target_label, size=12, color=palette.muted),
             ],
             spacing=10,
         ),
@@ -164,25 +169,26 @@ def _progress_card(title: str, value: float, target_label: str, tint: str) -> ft
 
 
 def _entry_row(date_label: str, meal: str, calories: str, spend: str) -> ft.Container:
+    palette = theme.active_palette
     return ft.Container(
         padding=14,
         border_radius=18,
-        bgcolor="#FAF6EE",
-        border=ft.border.all(1, "#E6DDCC"),
+        bgcolor=palette.surface_variant,
+        border=ft.border.all(1, palette.border),
         content=ft.Row(
             [
                 ft.Container(width=12, height=12, border_radius=6, bgcolor="#A87432"),
                 ft.Column(
                     [
-                        ft.Text(date_label, size=12, color="#7A7266"),
-                        ft.Text(meal, size=14, weight=ft.FontWeight.W_600, color="#1E1B17"),
+                        ft.Text(date_label, size=12, color=palette.muted),
+                        ft.Text(meal, size=14, weight=ft.FontWeight.W_600, color=palette.on_surface),
                     ],
                     spacing=2,
                     expand=True,
                 ),
                 ft.Column(
                     [
-                        ft.Text(calories, size=13, weight=ft.FontWeight.W_600, color="#1E1B17"),
+                        ft.Text(calories, size=13, weight=ft.FontWeight.W_600, color=palette.on_surface),
                         ft.Text(spend, size=12, color="#7A7266"),
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.END,
@@ -195,13 +201,14 @@ def _entry_row(date_label: str, meal: str, calories: str, spend: str) -> ft.Cont
 
 
 def _hero_section() -> ft.Container:
+    palette = theme.active_palette
     return ft.Container(
         padding=24,
         border_radius=32,
         gradient=ft.LinearGradient(
             begin=ft.alignment.top_left,
             end=ft.alignment.bottom_right,
-            colors=["#13261F", "#234134", "#6D532A"],
+            colors=palette.hero_gradient,
         ),
         content=ft.Column(
             [
@@ -211,7 +218,7 @@ def _hero_section() -> ft.Container:
                             width=64,
                             height=64,
                             border_radius=18,
-                            bgcolor="#F7F1E5",
+                            bgcolor=palette.icon_surface,
                             alignment=ft.alignment.center,
                             content=ft.Image(
                                 src="logo/garum_logo_complete.svg",
@@ -308,7 +315,7 @@ def _dashboard_view() -> ft.Control:
                                     ft.Text(
                                         "Keep the daily log clean and the trend lines will stay useful.",
                                         size=13,
-                                        color="#7A7266",
+                                        color=theme.active_palette.muted,
                                     ),
                                 ],
                                 spacing=10,
@@ -348,7 +355,7 @@ def _dashboard_view() -> ft.Control:
                                     ft.Container(
                                         padding=18,
                                         border_radius=18,
-                                        bgcolor="#F5EFE5",
+                                        bgcolor=theme.active_palette.surface_variant,
                                         content=ft.Column(
                                             [
                                                 ft.Text("Planned modules", size=13, weight=ft.FontWeight.W_600),
@@ -539,13 +546,14 @@ class GarumShell:
         self.snapshot = SNAPSHOT
 
     def build(self) -> ft.Control:
+        palette = theme.active_palette
         self.navigation.width = 96
         return ft.Container(
             expand=True,
             gradient=ft.LinearGradient(
                 begin=ft.alignment.top_left,
                 end=ft.alignment.bottom_right,
-                colors=["#F4F0E6", "#EFE7D8", "#E8E0D0"],
+                colors=(palette.background, palette.surface_variant, palette.border),
             ),
             content=ft.SafeArea(
                 ft.Row(
@@ -553,7 +561,7 @@ class GarumShell:
                         ft.Container(
                             width=140,
                             padding=16,
-                            bgcolor="#1A2C24",
+                            bgcolor=palette.appbar,
                             content=ft.Column(
                                 [
                                     ft.Row(
@@ -562,7 +570,7 @@ class GarumShell:
                                                 width=42,
                                                 height=42,
                                                 border_radius=14,
-                                                bgcolor="#F7F1E5",
+                                                bgcolor=palette.icon_surface,
                                                 alignment=ft.alignment.center,
                                                 content=ft.Image(
                                                     src="logo/garum_logo_complete.svg",
@@ -574,8 +582,8 @@ class GarumShell:
                                             ),
                                             ft.Column(
                                                 [
-                                                    ft.Text("Garum", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                                    ft.Text("nutrition", size=12, color="#B9C5BE"),
+                                                    ft.Text("Garum", size=22, weight=ft.FontWeight.BOLD, color=palette.sidebar_text),
+                                                    ft.Text("nutrition", size=12, color=palette.sidebar_text),
                                                 ],
                                                 spacing=2,
                                             ),
@@ -586,9 +594,9 @@ class GarumShell:
                                 spacing=4,
                             ),
                         ),
-                        ft.Container(width=1, bgcolor="#DDD4C3"),
+                        ft.Container(width=1, bgcolor=palette.border),
                         ft.Container(width=116, padding=12, content=self.navigation),
-                        ft.Container(width=1, bgcolor="#DDD4C3"),
+                        ft.Container(width=1, bgcolor=palette.border),
                         ft.Container(expand=True, content=self.content_host),
                     ],
                     expand=True,
@@ -637,12 +645,15 @@ def main() -> None:
 
 
 def _run_app(page: ft.Page) -> None:
+    configured_theme = load_settings()["APP_THEME"]
+    palette = theme.set_active_palette(configured_theme)
     page.title = "Garum"
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.theme = ft.Theme(color_scheme_seed=ft.Colors.GREEN, use_material3=True)
+    page.theme_mode = ft.ThemeMode.DARK if configured_theme == "dark" else ft.ThemeMode.LIGHT
+    page.theme = theme.build_theme(theme.LIGHT_PALETTE)
+    page.dark_theme = theme.build_theme(theme.DARK_PALETTE)
     page.padding = 0
     page.spacing = 0
-    page.bgcolor = "#F4F0E6"
+    page.bgcolor = palette.background
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.window.icon = str(PROJECT_ROOT / "logo" / "garum_logo_complete.svg")

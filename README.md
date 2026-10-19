@@ -19,7 +19,7 @@ Garum was built to solve that problem, it simplifies data entry and, among other
 - **Interactive graphs**: visualise your data by time span, individual macronutrient, or money spent.
 - **Macronutrient evaluations**: see what percentage of a recommended limit you have consumed (e.g. 40% of the suggested 25g of sugar). Limits and their sources are fully customisable, set them manually or choose from built-in presets such as [WHO](https://www.who.int/) or [AHA](https://www.heart.org/) guidelines.
 
-## Origin of name
+## Origin of the name
 
 From Wikipedia (paraphrased): [Garum](https://en.wikipedia.org/wiki/Garum) is a fermented fish sauce that was used as a condiment in the cuisines of Phoenicia, ancient Greece, Rome, Carthage, and later Byzantium.  
 
@@ -40,15 +40,83 @@ Start with this [video](https://www.youtube.com/watch?v=ICZww0DtQKk).
 Contributions are welcome and much appreciated.  
 Please read the [contributing guide](CONTRIBUTING.md) before opening an issue or submitting a pull request.
 
-## Getting started
-
-To run the app locally:
-
-```bash
-python -m pip install -e .
-python main.py
-```
-
 ## License
 
 Garum is distributed under the GNU General Public License v3.0. See the [LICENSE](LICENSE.txt) file for details.
+
+## Running the app
+
+### Theme palettes
+
+Theme colors are exported from [`src/theme.py`](src/theme.py) as
+`LIGHT_PALETTE`, `DARK_PALETTE`, and `THEME_PALETTES`. The `APP_THEME` setting
+selects one of these palettes at startup. The light palette is based on desert
+sand with brown and clay UI surfaces; the dark palette is based on dark grey
+with black elevated surfaces and light grey controls. Both palettes use red
+for errors.
+
+### uv
+
+Run as a desktop app:
+
+```bash
+uv run flet run
+```
+
+Run as a web app:
+
+```bash
+uv run flet run --web
+```
+
+For more details on running the app, refer to the [Getting Started Guide](https://flet.dev/docs/).
+
+## Build the app
+
+### Android
+
+```bash
+flet build apk -v
+```
+
+For more details on building and signing `.apk` or `.aab`, refer to the [Android Packaging Guide](https://flet.dev/docs/publish/android/).
+
+### iOS
+
+```bash
+flet build ipa -v
+```
+
+For more details on building and signing `.ipa`, refer to the [iOS Packaging Guide](https://flet.dev/docs/publish/ios/).
+
+### macOS
+
+```bash
+flet build macos -v
+```
+
+For more details on building macOS package, refer to the [macOS Packaging Guide](https://flet.dev/docs/publish/macos/).
+
+### Linux
+
+```bash
+flet build linux -v
+```
+
+For more details on building Linux package, refer to the [Linux Packaging Guide](https://flet.dev/docs/publish/linux/).
+
+### Windows
+
+```bash
+flet build windows -v
+```
+
+For more details on building Windows package, refer to the [Windows Packaging Guide](https://flet.dev/docs/publish/windows/).
+
+### Web
+
+```bash
+flet build web -v
+```
+
+For more details on building Web app, refer to the [Web Packaging Guide](https://flet.dev/docs/publish/web/).
