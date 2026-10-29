@@ -21,6 +21,19 @@ class MealEntry:
     protein_g: float = 0.0
     carbs_g: float = 0.0
     fat_g: float = 0.0
+    sugar_g: float = 0.0
+    saturated_fat_g: float = 0.0
+    fiber_g: float = 0.0
+    sodium_mg: float = 0.0
+    calcium_mg: float = 0.0
+    iron_mg: float = 0.0
+    magnesium_mg: float = 0.0
+    potassium_mg: float = 0.0
+    vitamin_a_ug: float = 0.0
+    vitamin_c_mg: float = 0.0
+    vitamin_d_ug: float = 0.0
+    vitamin_b12_ug: float = 0.0
+    folate_ug: float = 0.0
     notes: str = ""
     created_at: datetime | None = None
 
@@ -37,6 +50,19 @@ class MealEntry:
             protein_g=float(row_mapping.get("protein_g", 0.0)),
             carbs_g=float(row_mapping.get("carbs_g", 0.0)),
             fat_g=float(row_mapping.get("fat_g", 0.0)),
+            sugar_g=float(row_mapping.get("sugar_g", 0.0)),
+            saturated_fat_g=float(row_mapping.get("saturated_fat_g", 0.0)),
+            fiber_g=float(row_mapping.get("fiber_g", 0.0)),
+            sodium_mg=float(row_mapping.get("sodium_mg", 0.0)),
+            calcium_mg=float(row_mapping.get("calcium_mg", 0.0)),
+            iron_mg=float(row_mapping.get("iron_mg", 0.0)),
+            magnesium_mg=float(row_mapping.get("magnesium_mg", 0.0)),
+            potassium_mg=float(row_mapping.get("potassium_mg", 0.0)),
+            vitamin_a_ug=float(row_mapping.get("vitamin_a_ug", 0.0)),
+            vitamin_c_mg=float(row_mapping.get("vitamin_c_mg", 0.0)),
+            vitamin_d_ug=float(row_mapping.get("vitamin_d_ug", 0.0)),
+            vitamin_b12_ug=float(row_mapping.get("vitamin_b12_ug", 0.0)),
+            folate_ug=float(row_mapping.get("folate_ug", 0.0)),
             notes=row_mapping.get("notes") or "",
             created_at=datetime.fromisoformat(created_at_value) if created_at_value else None,
         )
@@ -50,6 +76,19 @@ class MealEntry:
             "protein_g": self.protein_g,
             "carbs_g": self.carbs_g,
             "fat_g": self.fat_g,
+            "sugar_g": self.sugar_g,
+            "saturated_fat_g": self.saturated_fat_g,
+            "fiber_g": self.fiber_g,
+            "sodium_mg": self.sodium_mg,
+            "calcium_mg": self.calcium_mg,
+            "iron_mg": self.iron_mg,
+            "magnesium_mg": self.magnesium_mg,
+            "potassium_mg": self.potassium_mg,
+            "vitamin_a_ug": self.vitamin_a_ug,
+            "vitamin_c_mg": self.vitamin_c_mg,
+            "vitamin_d_ug": self.vitamin_d_ug,
+            "vitamin_b12_ug": self.vitamin_b12_ug,
+            "folate_ug": self.folate_ug,
             "notes": self.notes,
             "created_at": (self.created_at or datetime.now()).isoformat(timespec="seconds"),
         }

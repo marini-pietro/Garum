@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from .models import MealEntry
 
@@ -17,22 +18,10 @@ class MealEntryStore:
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("PRAGMA foreign_keys=ON")
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS food_entries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    occurred_on TEXT NOT NULL,
-                    meal TEXT NOT NULL,
-                    calories_kcal INTEGER NOT NULL,
-                    spend_usd REAL NOT NULL,
-                    protein_g REAL NOT NULL DEFAULT 0,
-                    carbs_g REAL NOT NULL DEFAULT 0,
-                    fat_g REAL NOT NULL DEFAULT 0,
-                    notes TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL
-                )
-                """
-            )
+            schema_path = Path(__file__).resolve().parent.parent / "data" / "db.sql"
+            if not schema_path.is_file():
+                raise FileNotFoundError(f"Database schema not found: {schema_path}")
+            connection.executescript(schema_path.read_text(encoding="utf-8"))
 
     def list_entries(self, *, limit: int = 100) -> list[MealEntry]:
         with self._connect() as connection:
@@ -47,6 +36,19 @@ class MealEntryStore:
                     protein_g,
                     carbs_g,
                     fat_g,
+                    sugar_g,
+                    saturated_fat_g,
+                    fiber_g,
+                    sodium_mg,
+                    calcium_mg,
+                    iron_mg,
+                    magnesium_mg,
+                    potassium_mg,
+                    vitamin_a_ug,
+                    vitamin_c_mg,
+                    vitamin_d_ug,
+                    vitamin_b12_ug,
+                    folate_ug,
                     notes,
                     created_at
                 FROM food_entries
@@ -76,10 +78,30 @@ class MealEntryStore:
                     protein_g,
                     carbs_g,
                     fat_g,
+                    sugar_g,
+                    saturated_fat_g,
+                    fiber_g,
+                    sodium_mg,
+                    calcium_mg,
+                    iron_mg,
+                    magnesium_mg,
+                    potassium_mg,
+                    vitamin_a_ug,
+                    vitamin_c_mg,
+                    vitamin_d_ug,
+                    vitamin_b12_ug,
+                    folate_ug,
                     notes,
                     created_at
                 )
-                VALUES (:occurred_on, :meal, :calories_kcal, :spend_usd, :protein_g, :carbs_g, :fat_g, :notes, :created_at)
+                VALUES (
+                    :occurred_on, :meal, :calories_kcal, :spend_usd,
+                    :protein_g, :carbs_g, :fat_g, :sugar_g,
+                    :saturated_fat_g, :fiber_g, :sodium_mg, :calcium_mg,
+                    :iron_mg, :magnesium_mg, :potassium_mg, :vitamin_a_ug,
+                    :vitamin_c_mg, :vitamin_d_ug, :vitamin_b12_ug, :folate_ug,
+                    :notes, :created_at
+                )
                 """,
                 record,
             )
@@ -94,6 +116,19 @@ class MealEntryStore:
             protein_g=entry.protein_g,
             carbs_g=entry.carbs_g,
             fat_g=entry.fat_g,
+            sugar_g=entry.sugar_g,
+            saturated_fat_g=entry.saturated_fat_g,
+            fiber_g=entry.fiber_g,
+            sodium_mg=entry.sodium_mg,
+            calcium_mg=entry.calcium_mg,
+            iron_mg=entry.iron_mg,
+            magnesium_mg=entry.magnesium_mg,
+            potassium_mg=entry.potassium_mg,
+            vitamin_a_ug=entry.vitamin_a_ug,
+            vitamin_c_mg=entry.vitamin_c_mg,
+            vitamin_d_ug=entry.vitamin_d_ug,
+            vitamin_b12_ug=entry.vitamin_b12_ug,
+            folate_ug=entry.folate_ug,
             notes=entry.notes,
             created_at=entry.created_at,
         )
@@ -117,15 +152,44 @@ class MealEntryStore:
                     protein_g,
                     carbs_g,
                     fat_g,
+                    sugar_g,
+                    saturated_fat_g,
+                    fiber_g,
+                    sodium_mg,
+                    calcium_mg,
+                    iron_mg,
+                    magnesium_mg,
+                    potassium_mg,
+                    vitamin_a_ug,
+                    vitamin_c_mg,
+                    vitamin_d_ug,
+                    vitamin_b12_ug,
+                    folate_ug,
                     notes,
                     created_at
                 )
-                VALUES (:occurred_on, :meal, :calories_kcal, :spend_usd, :protein_g, :carbs_g, :fat_g, :notes, :created_at)
+                VALUES (
+                    :occurred_on, :meal, :calories_kcal, :spend_usd,
+                    :protein_g, :carbs_g, :fat_g, :sugar_g,
+                    :saturated_fat_g, :fiber_g, :sodium_mg, :calcium_mg,
+                    :iron_mg, :magnesium_mg, :potassium_mg, :vitamin_a_ug,
+                    :vitamin_c_mg, :vitamin_d_ug, :vitamin_b12_ug, :folate_ug,
+                    :notes, :created_at
+                )
                 """,
                 [entry.to_record() for entry in entries],
             )
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            yield connection
+        except BaseException:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
+        finally:
+            connection.close()
