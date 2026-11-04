@@ -1,0 +1,3 @@
+"""
+Garum application package.
+"""

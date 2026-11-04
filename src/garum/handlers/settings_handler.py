@@ -1,8 +1,11 @@
+"""Loading, validating, and saving user preferences."""
+
 import json
 from pathlib import Path
 from typing import Any
 
-SETTINGS_FILE = Path(__file__).resolve().parent.parent / "settings.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+SETTINGS_FILE = PROJECT_ROOT / "settings.json"
 
 valid_settings: dict[str, list[str] | callable | int | float] = {
     "APP_THEME": ["light", "dark"],
@@ -79,7 +82,8 @@ def load_settings(path: Path = SETTINGS_FILE) -> dict[str, str | int | float]:
         loaded_settings = data
     else:
         # If the settings file does not exist, create it with default settings
-        save_settings(settings_defaults, path)
+        settings.update(settings_defaults)
+        save_settings(path)
 
     # Gather the settings from the file that do not appear in the defaults
     unknown_settings = set(loaded_settings) - set(settings_defaults)
@@ -102,7 +106,7 @@ def load_settings(path: Path = SETTINGS_FILE) -> dict[str, str | int | float]:
 
     settings.clear() # Clear the global settings dictionary to remove any previous settings
     settings.update(validated_settings) # Update the global settings dictionary with the validated settings
-    return
+    return settings.copy()
 
 
 def save_settings(

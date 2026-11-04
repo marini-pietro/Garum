@@ -1,4 +1,4 @@
-"""Shared Garum color palettes and Flet theme builders."""
+"""Shared Garum color palettes, Flet theme builders and utility functions."""
 
 from dataclasses import dataclass
 
@@ -60,7 +60,7 @@ THEME_PALETTES = {
     DARK_PALETTE.name: DARK_PALETTE,
 }
 
-active_palette = LIGHT_PALETTE
+active_palette: ThemePalette = LIGHT_PALETTE
 
 def get_palette(theme_name: str) -> ThemePalette:
     """Return the configured palette, or raise for an unsupported theme."""
