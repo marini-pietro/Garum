@@ -2,7 +2,10 @@
 -- ========================
 --
 -- This SQLite database separates reusable food information from the events in
--- which food is eaten or purchased. The central flow is:
+-- which food is eaten or purchased. 
+-- Often in the tables there is already a valid candidate key but an additional id column
+-- is added as a surrogate key to simplify foreign key relationships, allow for easier expansion in the future and have simpler indexes.
+-- The central flow is:
 --
 --   brands/categories -> foods -> nutrient_profiles -> nutrient_values
 --                              |
@@ -31,7 +34,7 @@
 --   and servings. It is referenced by nutrition profiles, food servings,
 --   recipes, recommendations, purchases, and store packages.
 --
--- nutrition_sources
+-- nutrition_recommendation_sources
 --   The origin and version of nutrition or recommendation data. Profiles and
 --   suggested frequencies can reference a source so displayed values remain
 --   explainable and reproducible.
@@ -49,14 +52,14 @@
 --   one serving. It belongs to one food and can reference measurement units
 --   and a nutrition source.
 --
--- nutrient_types
+-- nutrients
 --   Defines nutrient identities and their display units, for example protein
 --   in grams or calcium in milligrams. Keeping this list separate allows new
 --   nutrients to be added without altering the schema.
 --
 -- nutrient_values
 --   Stores the amount of each nutrient in a nutrient profile. It is the
---   many-to-many bridge between nutrient_profiles and nutrient_types, with one
+--   many-to-many bridge between nutrient_profiles and nutrients, with one
 --   value per profile/nutrient pair.
 --
 -- food_servings
@@ -91,10 +94,10 @@
 -- Shopping and prices
 -- -------------------
 -- stores
---   One row per shop or location where foods can be purchased.
+--   One row per shop or location where the users purchases foods.
 --
 -- store_items
---   The many-to-many bridge between stores and foods. It represents a food
+--   The many-to-many bridge table between stores and foods. It represents a food
 --   being sold at a store, including its current price and package size.
 --   Its composite primary key prevents duplicate store-food listings.
 --
@@ -115,7 +118,7 @@
 -- detail rows that have no meaning without their parent (for example recipe
 -- ingredients). ON DELETE SET NULL is used where the historical row should
 -- remain valid if optional catalogue metadata is removed (for example a
--- brand or nutrition source).
+-- brand or a food).
 
 PRAGMA foreign_keys = ON; -- Enable foreign key constraints in SQLite.
 
@@ -136,8 +139,8 @@ CREATE TABLE IF NOT EXISTS categories (
 -- Each unit has a unique code and name, and a kind that indicates whether it is a mass, volume, count, or serving unit.
 CREATE TABLE IF NOT EXISTS units (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE, -- The code is a short identifier for the unit, such as 'g' for grams or 'ml' for millilitres.
+    name TEXT NOT NULL, -- The name is a human-readable description of the unit, such as 'Gram' or 'Millilitre'.
     kind TEXT NOT NULL CHECK (kind IN ('mass', 'volume', 'count', 'serving'))
 );
 -- Insert initial data into the units table
@@ -151,26 +154,26 @@ INSERT OR IGNORE INTO units (code, name, kind) VALUES
 
 -- Table that stores the sources of nutrition data.
 -- Each source has a unique name and version, and may have a URL and a timestamp indicating when the data was retrieved.
-CREATE TABLE IF NOT EXISTS nutrition_sources (
+CREATE TABLE IF NOT EXISTS nutrition_recommendation_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    version TEXT,
-    url TEXT,
-    retrieved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (name, version)
+    name TEXT NOT NULL, -- The name is a required string that identifies the source, such as 'USDA FoodData Central' or 'WHO Nutrient Recommendations'.
+    version TEXT, -- The version is an optional string that indicates the version of the source, such as '2021-01' or 'v2.0'.
+    url TEXT, -- The URL is an optional link to the source's website or documentation.
+    retrieved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- The retrieved_at timestamp indicates when the source data was last retrieved or updated.
+    UNIQUE (name, version) -- Composite unique constraint on name and version to prevent duplicate sources with the same name and version.
 );
 
 -- Table that stores the foods. Each food has a name, and may belong to a brand and a category.
 CREATE TABLE IF NOT EXISTS foods (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    brand_id INTEGER,
-    category_id INTEGER,
+    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+    name TEXT NOT NULL, -- The name is a required string that identifies the food, such as 'Apple' or 'Chicken Breast'.
+    brand_id INTEGER, -- The brand_id is an optional foreign key that references the brands table, indicating the brand of the food. It can be NULL if the food has no brand or the user doesn't want to track it.
+    category_id INTEGER, -- The category_id is an optional foreign key that references the categories table, indicating the category of the food. It can be NULL if the food has no category or the user doesn't want to track it.
     is_food INTEGER NOT NULL DEFAULT 1 CHECK (is_food IN (0, 1)), -- SQLite does not have a boolean type, use INTEGER with 0/1 values.
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL, -- If a brand is deleted, set the brand_id to NULL in the foods table.
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-    UNIQUE (brand_id, name)
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL, -- If a category is deleted, set the category_id to NULL in the foods table.
+    UNIQUE (brand_id, name) -- Composite unique constraint on brand_id and name to prevent duplicate foods with the same brand and name.
 );
 
 -- A profile describes the quantity against which nutrition values are reported.
@@ -186,46 +189,46 @@ CREATE TABLE IF NOT EXISTS nutrient_profiles (
     FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE,
     FOREIGN KEY (basis_unit_id) REFERENCES units(id),
     FOREIGN KEY (serving_unit_id) REFERENCES units(id),
-    FOREIGN KEY (source_id) REFERENCES nutrition_sources(id) ON DELETE SET NULL
+    FOREIGN KEY (source_id) REFERENCES nutrition_recommendation_sources(id) ON DELETE SET NULL
 );
 
--- Table that stores the types of nutrients.
---Each nutrient type has a unique code, name, and unit of measurement.
-CREATE TABLE IF NOT EXISTS nutrient_types (
+-- Table that stores the nutrients names, types, codes, and units.
+CREATE TABLE IF NOT EXISTS nutrients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    unit TEXT NOT NULL
+    type TEXT NOT NULL CHECK (type IN ('macronutrient', 'vitamin', 'mineral', 'other')),
+    code TEXT NOT NULL UNIQUE, -- The code is a short identifier for the nutrient, such as 'sat_fat' or 'calcium'.
+    name TEXT NOT NULL, -- The name is a human-readable description of the nutrient, such as 'Saturated Fat' or 'Calcium'.
+    unit TEXT NOT NULL -- The unit is a string that indicates the measurement unit for the nutrient, such as 'g' for grams or 'mg' for milligrams.
 );
--- Insert initial data into the nutrient_types table.
-INSERT OR IGNORE INTO nutrient_types (code, name, unit) VALUES
-    ('kcals', 'Calories', 'kcal'),
-    ('protein', 'Protein', 'g'),
-    ('carbs', 'Carbohydrates', 'g'),
-    ('sugar', 'Sugars', 'g'),
-    ('fat', 'Total fat', 'g'),
-    ('sat_fat', 'Saturated fat', 'g'),
-    ('fiber', 'Fiber', 'g'),
-    ('sodium', 'Sodium', 'mg'),
-    ('calcium', 'Calcium', 'mg'),
-    ('iron', 'Iron', 'mg'),
-    ('magnesium', 'Magnesium', 'mg'),
-    ('potassium', 'Potassium', 'mg'),
-    ('vitamin_a', 'Vitamin A', 'ug'),
-    ('vitamin_c', 'Vitamin C', 'mg'),
-    ('vitamin_d', 'Vitamin D', 'ug'),
-    ('vitamin_b12', 'Vitamin B12', 'ug'),
-    ('folate', 'Folate', 'ug');
+-- Insert initial data into the nutrients table.
+INSERT OR IGNORE INTO nutrients (code, type, name, unit) VALUES
+    ('kcals', 'macronutrient', 'Calories', 'kcal'),
+    ('protein', 'macronutrient', 'Protein', 'g'),
+    ('carbs', 'macronutrient', 'Carbohydrates', 'g'),
+    ('sugar', 'macronutrient', 'Sugars', 'g'),
+    ('fat', 'macronutrient', 'Total fat', 'g'),
+    ('sat_fat', 'macronutrient', 'Saturated fat', 'g'),
+    ('fiber', 'macronutrient', 'Fiber', 'g'),
+    ('sodium', 'mineral', 'Sodium', 'mg'),
+    ('calcium', 'mineral', 'Calcium', 'mg'),
+    ('iron', 'mineral', 'Iron', 'mg'),
+    ('magnesium', 'mineral', 'Magnesium', 'mg'),
+    ('potassium', 'mineral', 'Potassium', 'mg'),
+    ('vitamin_a', 'vitamin', 'Vitamin A', 'ug'),
+    ('vitamin_c', 'vitamin', 'Vitamin C', 'mg'),
+    ('vitamin_d', 'vitamin', 'Vitamin D', 'ug'),
+    ('vitamin_b12', 'vitamin', 'Vitamin B12', 'ug'),
+    ('folate', 'vitamin', 'Folate', 'ug');
 
 -- Table that stores the nutrient values for each food's nutrient profile.
 -- Each nutrient value is associated with a nutrient type and has an amount that must be non-negative.
 CREATE TABLE IF NOT EXISTS nutrient_values (
-    profile_id INTEGER NOT NULL,
+    profile_id INTEGER NOT NULL, 
     nutrient_type_id INTEGER NOT NULL,
     amount REAL NOT NULL CHECK (amount >= 0),
     PRIMARY KEY (profile_id, nutrient_type_id),
     FOREIGN KEY (profile_id) REFERENCES nutrient_profiles(id) ON DELETE CASCADE,
-    FOREIGN KEY (nutrient_type_id) REFERENCES nutrient_types(id) ON DELETE CASCADE
+    FOREIGN KEY (nutrient_type_id) REFERENCES nutrients(id) ON DELETE CASCADE
 );
 
 -- Optional alternate package or household measures for a food.
@@ -253,7 +256,7 @@ CREATE TABLE IF NOT EXISTS suggested_frequencies (
     valid_to TEXT,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
     FOREIGN KEY (unit_id) REFERENCES units(id),
-    FOREIGN KEY (source_id) REFERENCES nutrition_sources(id) ON DELETE SET NULL,
+    FOREIGN KEY (source_id) REFERENCES nutrition_recommendation_sources(id) ON DELETE SET NULL,
     CHECK (valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from)
 );
 
@@ -263,26 +266,28 @@ CREATE TABLE IF NOT EXISTS suggested_frequencies (
 -- Instead of inserting each ingredient separately, the user can create a recipe and then select the recipe to quickly insert all ingredients.
 CREATE TABLE IF NOT EXISTS recipes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL UNIQUE, -- The name is a required string that identifies the recipe.
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table that stores the ingredients of each recipe.
+-- Each ingredient is associated with a food and has a quantity and unit of measurement.
 CREATE TABLE IF NOT EXISTS recipe_ingredients (
-    recipe_id INTEGER NOT NULL,
-    food_id INTEGER NOT NULL,
-    quantity REAL NOT NULL CHECK (quantity > 0),
-    unit_id INTEGER NOT NULL,
-    PRIMARY KEY (recipe_id, food_id),
-    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
-    FOREIGN KEY (food_id) REFERENCES foods(id),
-    FOREIGN KEY (unit_id) REFERENCES units(id)
+    recipe_id INTEGER NOT NULL, -- The recipe_id is a foreign key that references the recipes table, indicating which recipe the ingredient belongs to.
+    food_id INTEGER NOT NULL, -- The food_id is a foreign key that references the foods table, indicating which food is used as an ingredient in the recipe.
+    quantity REAL NOT NULL CHECK (quantity > 0), -- The quantity is a required positive number that indicates how much of the food is used in the recipe (e.g. 2 of a particular food that is a 400g can).
+    unit_id INTEGER NOT NULL, -- The unit_id is a foreign key that references the units table, indicating the unit of measurement for the quantity (e.g. grams, millilitres, etc.).
+    PRIMARY KEY (recipe_id, food_id), -- Composite primary key on recipe_id and food_id to prevent duplicate ingredients for the same recipe.
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE, -- If a recipe is deleted, all its ingredients are also deleted.
+    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL, -- If a food is deleted, the ingredient remains but the food_id is set to NULL.
+    FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE SET NULL -- If a unit is deleted, the ingredient remains but the unit_id is set to NULL.
 );
 
 -- Denormalized nutrition columns are snapshots: historical entries do not change
 -- when a food label or nutrient profile is updated.
 CREATE TABLE IF NOT EXISTS food_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    occurred_on TEXT NOT NULL,
+    occurred_on TEXT NOT NULL, -- The date and time when the food was consumed, stored as a text string in ISO 8601 format.
     meal TEXT NOT NULL,
     food_id INTEGER,
     recipe_id INTEGER,
@@ -318,10 +323,10 @@ CREATE TABLE IF NOT EXISTS food_entries (
 --Each store has a name, location, and an optional link to a map.
 CREATE TABLE IF NOT EXISTS stores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    location TEXT,
-    maps_link TEXT,
-    UNIQUE (name, location)
+    name TEXT NOT NULL, -- The name is a required string that identifies the store, such as 'Conad' or 'Poli'.
+    location TEXT, -- The location is an optional string that describes the store's address or area, such as 'Via Roma 10, Milano'.
+    maps_link TEXT, -- The maps_link is an optional string that contains a URL to a map or navigation service for the store's location.
+    UNIQUE (name, location) -- Composite unique constraint on name and location to prevent duplicate stores with the same name and location.
 );
 
 -- Table that stores the items sold in each store.
@@ -330,6 +335,7 @@ CREATE TABLE IF NOT EXISTS store_items (
     store_id INTEGER NOT NULL,
     food_id INTEGER NOT NULL,
     current_price REAL NOT NULL DEFAULT 0 CHECK (current_price >= 0),
+    -- The package_quantity is an optional real number that represents the quantity of the food item in the package.
     package_quantity REAL CHECK (package_quantity IS NULL OR package_quantity > 0),
     package_unit_id INTEGER,
     PRIMARY KEY (store_id, food_id),
@@ -342,8 +348,8 @@ CREATE TABLE IF NOT EXISTS store_items (
 -- This allows for tracking price changes over time and analyzing trends.
 CREATE TABLE IF NOT EXISTS price_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    store_id INTEGER NOT NULL,
-    food_id INTEGER NOT NULL,
+    store_id INTEGER NOT NULL, -- The store_id is a foreign key that references the stores table, indicating which store the price observation belongs to.
+    food_id INTEGER NOT NULL, -- The food_id is a foreign key that references the foods table, indicating which food item's price is being recorded.
     price REAL NOT NULL CHECK (price >= 0),
     observed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (store_id, food_id) REFERENCES store_items(store_id, food_id) ON DELETE CASCADE
@@ -357,7 +363,7 @@ CREATE TABLE IF NOT EXISTS purchases (
     store_id INTEGER NOT NULL,
     food_id INTEGER NOT NULL,
     quantity REAL NOT NULL CHECK (quantity > 0),
-    unit_id INTEGER NOT NULL,
+    unit_id INTEGER NOT NULL, --
     unit_price REAL NOT NULL CHECK (unit_price >= 0),
     discount_percent REAL NOT NULL DEFAULT 0 CHECK (discount_percent >= 0 AND discount_percent <= 100),
     purchased_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
