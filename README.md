@@ -1,5 +1,5 @@
 <p align="center">
-🇮🇹 <a href="README_IT.md">README in italiano</a>
+🇮🇹 <a href="README_IT.md">In italiano</a>
 </p>
 
 > Garum does not provide medical advice and is not intended to do so.  
