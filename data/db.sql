@@ -7,45 +7,59 @@
 -- is added as a surrogate key to simplify foreign key relationships, allow for easier expansion in the future and have simpler indexes.
 -- The central flow is:
 --
---   brands/categories -> foods -> nutrient_profiles -> nutrient_values
+--   brands/categories -> items -> nutrient_profiles -> nutrient_values
 --                              |
---                              +-> food_servings
+--                              +-> consumptions
 --                              +-> recipe_ingredients <- recipes
+--                              +-> inventory
 --                              +-> food_entries
 --                              +-> store_items <- stores
 --                                                   |
 --                                                   +-> price_history
---                                                   +-> purchases
+--                                                   +-> grocery_bills <- purchases
 --
 -- Reference data
 -- --------------
 -- brands
 --   One row per food brand. foods.brand_id optionally points to a brand.
 --   Brands are separate so their names remain consistent and can later carry
---   metadata without duplicating it in every food row.
+--   metadata without duplicating it in every food row, saving memory and allowing for easier updates.
 --
 -- categories
---   One row per food category. foods.category_id optionally groups foods into
+--   One row per food category. food_categories links foods to one or more
 --   categories, and suggested_frequencies uses categories to describe
 --   recommended consumption patterns.
+--   Categories are user-defined and can be used to group foods in the GUI,
+--   for example by cuisine, meal type, or dietary preference.
+--   One food may participate in multiple categories.
+--   Because categories are user-defined, users can choose the level of detail
+--   with which they classify foods. For example, a user may create a broad
+--   category such as "Fish" and a more specific category such as "Swordfish",
+--   then assign a swordfish food to both. This allows dietary intake to be
+--   tracked at multiple levels of granularity. In this example, the user can
+--   monitor fish consumption overall while also tracking swordfish specifically,
+--   which is useful because swordfish is known to contain higher levels of
+--   mercury than many other fish.
 --
 -- units
 --   The controlled vocabulary for quantities such as grams, litres, units,
---   and servings. It is referenced by nutrition profiles, food servings,
---   recipes, recommendations, purchases, and store packages.
+--   and servings. It is referenced by nutrition profiles, consumptions,
+--   recipes, recommendations, purchases, and packages.
 --
 -- nutrition_recommendation_sources
 --   The origin and version of nutrition or recommendation data. Profiles and
 --   suggested frequencies can reference a source so displayed values remain
---   explainable and reproducible.
+--   explainable and traceable to their origin.
 --
--- Food and nutrition catalogue
+-- Item and nutrition catalogue
 -- ----------------------------
 -- foods
---   The canonical catalogue of foods or products. It references an optional
---   brand and category, but does not contain consumption or purchase events.
---   A food can have one nutrient profile, many named servings, many recipe
---   uses, many food-log entries, and many store listings.
+--   The canonical catalogue of items. The is_food flag distinguishes food
+--   items from non-food products. Every food is an item, but non-food items
+--   cannot have nutrition profiles, servings, recipe uses, or food-log entries.
+--   Food categories are stored in the food_categories junction table.
+--   Both kinds of item can participate in inventory, store listings, purchases,
+--   and price analytics.
 --
 -- nutrient_profiles
 --   Defines the basis for a food's nutrition data, such as 100 g, 100 ml, or
@@ -53,19 +67,18 @@
 --   and a nutrition source.
 --
 -- nutrients
---   Defines nutrient identities and their display units, for example protein
---   in grams or calcium in milligrams. Keeping this list separate allows new
---   nutrients to be added without altering the schema.
+--   Defines nutrient identities and their display units (e.g. protein in grams, magnesium in milligrams).
+--   Keeping this list separate allows new nutrients to be added without altering the schema.
 --
 -- nutrient_values
 --   Stores the amount of each nutrient in a nutrient profile. It is the
 --   many-to-many bridge between nutrient_profiles and nutrients, with one
 --   value per profile/nutrient pair.
 --
--- food_servings
---   Stores optional named household measures for a food, such as "one bowl"
---   or "one slice", and their base quantity. A food can have many servings;
---   each serving uses one unit from units.
+-- consumptions
+--   Stores optional named consumption measures for food items, such as "one
+--   bowl" or "one slice", and their base quantity. Non-food items cannot have
+--   rows in this table.
 --
 -- suggested_frequencies
 --   Stores category-level consumption recommendations, including frequency,
@@ -76,13 +89,17 @@
 -- Recipes and consumption
 -- -----------------------
 -- recipes
---   One row per prepared dish. A recipe has a serving count and is composed
---   of foods through recipe_ingredients.
+--   One row per prepared dish. A recipe has a serving count and editable
+--   nutrition totals, initially calculated from its ingredients.
 --
 -- recipe_ingredients
 --   The many-to-many bridge between recipes and foods. Each row records how
 --   much of one food a recipe uses. Recipes can therefore be reused in many
 --   food-log entries without copying their ingredients.
+--
+-- inventory
+--   The current quantity snapshot for catalogue items or manually described
+--   products. Manual descriptions can later be added to the catalogue.
 --
 -- food_entries
 --   The historical food diary. Each row represents food consumed at a meal
@@ -94,12 +111,12 @@
 -- Shopping and prices
 -- -------------------
 -- stores
---   One row per shop or location where the users purchases foods.
+--   One row per shop or location where the user purchases items.
 --
 -- store_items
---   The many-to-many bridge table between stores and foods. It represents a food
---   being sold at a store, including its current price and package size.
---   Its composite primary key prevents duplicate store-food listings.
+--   The many-to-many bridge table between stores and items. It represents an
+--   item being sold at a store, including its current price and package size.
+--   Its composite primary key prevents duplicate store-item listings.
 --
 -- price_history
 --   Historical observations of a store item's price. Each row belongs to an
@@ -107,10 +124,14 @@
 --   values.
 --
 -- purchases
---   The historical shopping ledger. Each purchase identifies a store-food
---   combination, quantity, unit price, discount, and purchase time. It
---   references store_items to prevent recording a purchase from a store that
---   does not sell that food.
+--   The historical line-item shopping ledger. Each purchase identifies a
+--   store-item combination, quantity, unit price, discount, and purchase time.
+--   It references store_items to prevent recording a purchase from a store
+--   that does not sell that food, and can belong to a grocery bill.
+--
+-- grocery_bills
+--   A grocery receipt or bill that groups purchases made at one store. Its
+--   total supports grocery-bill history alongside individual price records.
 --
 -- Relationship conventions
 -- ------------------------
@@ -163,20 +184,30 @@ CREATE TABLE IF NOT EXISTS nutrition_recommendation_sources (
     UNIQUE (name, version) -- Composite unique constraint on name and version to prevent duplicate sources with the same name and version.
 );
 
--- Table that stores the foods. Each food has a name, and may belong to a brand and a category.
+-- Table that stores catalogue items. Every food is an item, but an item is not
+-- necessarily food. Food-only relationships are enforced by triggers below.
 CREATE TABLE IF NOT EXISTS foods (
     id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    name TEXT NOT NULL, -- The name is a required string that identifies the food, such as 'Apple' or 'Chicken Breast'.
-    brand_id INTEGER, -- The brand_id is an optional foreign key that references the brands table, indicating the brand of the food. It can be NULL if the food has no brand or the user doesn't want to track it.
-    category_id INTEGER, -- The category_id is an optional foreign key that references the categories table, indicating the category of the food. It can be NULL if the food has no category or the user doesn't want to track it.
-    is_food INTEGER NOT NULL DEFAULT 1 CHECK (is_food IN (0, 1)), -- SQLite does not have a boolean type, use INTEGER with 0/1 values.
+    name TEXT NOT NULL, -- The name identifies the item, such as 'Apple' or 'Dish soap'.
+    brand_id INTEGER, -- Optional brand shared by food and non-food items.
+    is_food INTEGER NOT NULL DEFAULT 1 CHECK (is_food IN (0, 1)), -- 1 means the item is food and may have nutrition data; 0 means non-food and all food-only foreign keys must be absent.
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL, -- If a brand is deleted, set the brand_id to NULL in the foods table.
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL, -- If a category is deleted, set the category_id to NULL in the foods table.
     UNIQUE (brand_id, name) -- Composite unique constraint on brand_id and name to prevent duplicate foods with the same brand and name.
 );
 
+-- Junction table that assigns one food to multiple categories.
+-- For example, a ham pizza can belong to both red meat and baked goods.
+CREATE TABLE IF NOT EXISTS food_categories (
+    food_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    PRIMARY KEY (food_id, category_id),
+    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
 -- A profile describes the quantity against which nutrition values are reported.
+-- Only catalogue items with is_food = 1 may have a profile.
 CREATE TABLE IF NOT EXISTS nutrient_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     food_id INTEGER NOT NULL UNIQUE,
@@ -192,7 +223,7 @@ CREATE TABLE IF NOT EXISTS nutrient_profiles (
     FOREIGN KEY (source_id) REFERENCES nutrition_recommendation_sources(id) ON DELETE SET NULL
 );
 
--- Table that stores the nutrients names, types, codes, and units.
+-- Table that stores the nutrient names, types, codes, and units.
 CREATE TABLE IF NOT EXISTS nutrients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL CHECK (type IN ('macronutrient', 'vitamin', 'mineral', 'other')),
@@ -231,10 +262,10 @@ CREATE TABLE IF NOT EXISTS nutrient_values (
     FOREIGN KEY (nutrient_type_id) REFERENCES nutrients(id) ON DELETE CASCADE
 );
 
--- Optional alternate package or household measures for a food.
+-- Optional consumption measures for a food item.
 -- For example, a user may say that they ate "1 cup of rice" instead of "200 grams of rice".
 -- This table allows for storing such alternate measures.
-CREATE TABLE IF NOT EXISTS food_servings (
+CREATE TABLE IF NOT EXISTS consumptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     food_id INTEGER NOT NULL,
     name TEXT NOT NULL,
@@ -267,6 +298,26 @@ CREATE TABLE IF NOT EXISTS suggested_frequencies (
 CREATE TABLE IF NOT EXISTS recipes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE, -- The name is a required string that identifies the recipe.
+    -- Nutrition totals are initialized from ingredients and can be overridden
+    -- when preparation changes the resulting values.
+    servings INTEGER NOT NULL DEFAULT 1 CHECK (servings > 0),
+    calories_kcal REAL NOT NULL DEFAULT 0 CHECK (calories_kcal >= 0),
+    protein_g REAL NOT NULL DEFAULT 0 CHECK (protein_g >= 0),
+    carbs_g REAL NOT NULL DEFAULT 0 CHECK (carbs_g >= 0),
+    sugar_g REAL NOT NULL DEFAULT 0 CHECK (sugar_g >= 0 AND sugar_g <= carbs_g),
+    fat_g REAL NOT NULL DEFAULT 0 CHECK (fat_g >= 0),
+    saturated_fat_g REAL NOT NULL DEFAULT 0 CHECK (saturated_fat_g >= 0 AND saturated_fat_g <= fat_g),
+    fiber_g REAL NOT NULL DEFAULT 0 CHECK (fiber_g >= 0),
+    sodium_mg REAL NOT NULL DEFAULT 0 CHECK (sodium_mg >= 0),
+    calcium_mg REAL NOT NULL DEFAULT 0 CHECK (calcium_mg >= 0),
+    iron_mg REAL NOT NULL DEFAULT 0 CHECK (iron_mg >= 0),
+    magnesium_mg REAL NOT NULL DEFAULT 0 CHECK (magnesium_mg >= 0),
+    potassium_mg REAL NOT NULL DEFAULT 0 CHECK (potassium_mg >= 0),
+    vitamin_a_ug REAL NOT NULL DEFAULT 0 CHECK (vitamin_a_ug >= 0),
+    vitamin_c_mg REAL NOT NULL DEFAULT 0 CHECK (vitamin_c_mg >= 0),
+    vitamin_d_ug REAL NOT NULL DEFAULT 0 CHECK (vitamin_d_ug >= 0),
+    vitamin_b12_ug REAL NOT NULL DEFAULT 0 CHECK (vitamin_b12_ug >= 0),
+    folate_ug REAL NOT NULL DEFAULT 0 CHECK (folate_ug >= 0),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -279,8 +330,24 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     unit_id INTEGER NOT NULL, -- The unit_id is a foreign key that references the units table, indicating the unit of measurement for the quantity (e.g. grams, millilitres, etc.).
     PRIMARY KEY (recipe_id, food_id), -- Composite primary key on recipe_id and food_id to prevent duplicate ingredients for the same recipe.
     FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE, -- If a recipe is deleted, all its ingredients are also deleted.
-    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL, -- If a food is deleted, the ingredient remains but the food_id is set to NULL.
-    FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE SET NULL -- If a unit is deleted, the ingredient remains but the unit_id is set to NULL.
+    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE, -- If a food is deleted, recipe ingredients using it are deleted.
+    FOREIGN KEY (unit_id) REFERENCES units(id) -- Units remain required for recipe ingredients, so they cannot be deleted while referenced.
+);
+
+-- Table that stores the current inventory snapshot.
+-- A row can reference a catalogue product or keep a manual description until
+-- the user decides to add that product to the catalogue.
+CREATE TABLE IF NOT EXISTS inventory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    food_id INTEGER,
+    description TEXT NOT NULL DEFAULT '',
+    quantity REAL NOT NULL CHECK (quantity >= 0),
+    unit_id INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL,
+    FOREIGN KEY (unit_id) REFERENCES units(id),
+    CHECK (food_id IS NOT NULL OR length(trim(description)) > 0),
+    UNIQUE (food_id, description, unit_id)
 );
 
 -- Denormalized nutrition columns are snapshots: historical entries do not change
@@ -357,9 +424,20 @@ CREATE TABLE IF NOT EXISTS price_history (
 
 -- Table that stores the purchases made by the user.
 -- Each purchase is associated with a store, a food item, a quantity, a unit of measurement, 
--- a unit price, and an optional discount percentage.
+-- a unit price, and an optional discount percentage. Purchases may be grouped
+-- under a grocery bill.
+CREATE TABLE IF NOT EXISTS grocery_bills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    store_id INTEGER NOT NULL,
+    total_amount REAL NOT NULL CHECK (total_amount >= 0),
+    purchased_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE RESTRICT
+);
+
 CREATE TABLE IF NOT EXISTS purchases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bill_id INTEGER,
     store_id INTEGER NOT NULL,
     food_id INTEGER NOT NULL,
     quantity REAL NOT NULL CHECK (quantity > 0),
@@ -367,13 +445,123 @@ CREATE TABLE IF NOT EXISTS purchases (
     unit_price REAL NOT NULL CHECK (unit_price >= 0),
     discount_percent REAL NOT NULL DEFAULT 0 CHECK (discount_percent >= 0 AND discount_percent <= 100),
     purchased_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (bill_id) REFERENCES grocery_bills(id) ON DELETE SET NULL,
     FOREIGN KEY (store_id, food_id) REFERENCES store_items(store_id, food_id),
     FOREIGN KEY (unit_id) REFERENCES units(id)
 );
 
+-- SQLite CHECK constraints cannot inspect another table, so these triggers
+-- enforce the is_food flag across the food-only relationships. A non-food
+-- item can still be referenced by inventory, stores, prices, and purchases.
+CREATE TRIGGER IF NOT EXISTS foods_prevent_non_food_dependencies
+BEFORE UPDATE OF is_food ON foods
+WHEN NEW.is_food = 0
+    AND (
+        EXISTS (SELECT 1 FROM nutrient_profiles WHERE food_id = NEW.id)
+        OR EXISTS (SELECT 1 FROM consumptions WHERE food_id = NEW.id)
+        OR EXISTS (SELECT 1 FROM food_categories WHERE food_id = NEW.id)
+        OR EXISTS (SELECT 1 FROM recipe_ingredients WHERE food_id = NEW.id)
+        OR EXISTS (SELECT 1 FROM food_entries WHERE food_id = NEW.id)
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'non-food items cannot have food-only dependencies');
+END;
+
+CREATE TRIGGER IF NOT EXISTS food_categories_require_food
+BEFORE INSERT ON food_categories
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'categories require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS food_categories_update_require_food
+BEFORE UPDATE OF food_id ON food_categories
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'categories require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS nutrient_profiles_require_food
+BEFORE INSERT ON nutrient_profiles
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'nutrient profiles require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS nutrient_profiles_update_require_food
+BEFORE UPDATE OF food_id ON nutrient_profiles
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'nutrient profiles require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS consumptions_require_food
+BEFORE INSERT ON consumptions
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'consumptions require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS consumptions_update_require_food
+BEFORE UPDATE OF food_id ON consumptions
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'consumptions require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS recipe_ingredients_require_food
+BEFORE INSERT ON recipe_ingredients
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'recipe ingredients require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS recipe_ingredients_update_require_food
+BEFORE UPDATE OF food_id ON recipe_ingredients
+WHEN NOT EXISTS (
+    SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+)
+BEGIN
+    SELECT RAISE(ABORT, 'recipe ingredients require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS food_entries_require_food
+BEFORE INSERT ON food_entries
+WHEN NEW.food_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'food entries require a food item');
+END;
+
+CREATE TRIGGER IF NOT EXISTS food_entries_update_require_food
+BEFORE UPDATE OF food_id ON food_entries
+WHEN NEW.food_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM foods WHERE id = NEW.food_id AND is_food = 1
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'food entries require a food item');
+END;
+
 -- Create indexes to improve query performance on frequently queried columns.
-CREATE INDEX IF NOT EXISTS idx_foods_category_id
-    ON foods(category_id);
+CREATE INDEX IF NOT EXISTS idx_food_categories_category_id
+    ON food_categories(category_id);
 
 CREATE INDEX IF NOT EXISTS idx_nutrient_profiles_source_id
     ON nutrient_profiles(source_id);
@@ -387,8 +575,8 @@ CREATE INDEX IF NOT EXISTS idx_nutrient_profiles_serving_unit_id
 CREATE INDEX IF NOT EXISTS idx_nutrient_values_nutrient_type_id
     ON nutrient_values(nutrient_type_id);
 
-CREATE INDEX IF NOT EXISTS idx_food_servings_unit_id
-    ON food_servings(unit_id);
+CREATE INDEX IF NOT EXISTS idx_consumptions_unit_id
+    ON consumptions(unit_id);
 
 CREATE INDEX IF NOT EXISTS idx_suggested_frequencies_category_validity
     ON suggested_frequencies(category_id, valid_from, valid_to);
@@ -404,6 +592,20 @@ CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_food_id
 
 CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_unit_id
     ON recipe_ingredients(unit_id);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_food_id
+    ON inventory(food_id);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_updated_at
+    ON inventory(updated_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_food_unit
+    ON inventory(food_id, unit_id)
+    WHERE food_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_manual_description_unit
+    ON inventory(description, unit_id)
+    WHERE food_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_food_entries_occurred_on
     ON food_entries(occurred_on);
@@ -443,3 +645,9 @@ CREATE INDEX IF NOT EXISTS idx_purchases_purchased_at
 
 CREATE INDEX IF NOT EXISTS idx_purchases_unit_id
     ON purchases(unit_id);
+
+CREATE INDEX IF NOT EXISTS idx_purchases_bill_id
+    ON purchases(bill_id);
+
+CREATE INDEX IF NOT EXISTS idx_grocery_bills_store_purchased_at
+    ON grocery_bills(store_id, purchased_at);

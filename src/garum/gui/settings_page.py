@@ -1,7 +1,9 @@
-"""Settings dialog for the Garum application."""
+"""
+Settings GUI page for the application.
+"""
 
+# Third-party imports
 import flet as ft
-
 
 def show_settings(event: ft.ControlEvent) -> None:
     """Display the settings dialog."""

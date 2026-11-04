@@ -1,1 +1,3 @@
-"""Flet presentation layer for the Garum application."""
+"""
+Flet presentation layer for the Garum application.
+"""

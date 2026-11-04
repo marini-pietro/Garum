@@ -1,12 +1,15 @@
 """Loading, validating, and saving user preferences."""
 
+# First party imports
 import json
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-SETTINGS_FILE = PROJECT_ROOT / "settings.json"
+# Define the project root and settings file path
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
+SETTINGS_FILE_PATH: Path = PROJECT_ROOT / "settings.json"
 
+# Define valid settings (settings that the app supports) and all their possible values
 valid_settings: dict[str, list[str] | callable | int | float] = {
     "APP_THEME": ["light", "dark"],
     "APP_LANGUAGE": ["en", "it"],
@@ -24,6 +27,10 @@ valid_settings: dict[str, list[str] | callable | int | float] = {
     ],
 }
 
+# Define default settings (the default values for each setting)
+# The default settings are used when a setting is missing from the settings file, 
+#   when a setting has an invalid value and when a new setting file is not present and needs to be created and filled.
+# This dictionary should not contain any settings that are not present in the valid_settings dictionary, as this would cause a ValueError when loading the settings.
 settings_defaults: dict[str, str | int | float] = {
     "APP_THEME": "light",
     "APP_LANGUAGE": "en",
@@ -35,6 +42,8 @@ settings_defaults: dict[str, str | int | float] = {
     "USER_ACTIVITY_LEVEL": "moderately_active",
 }
 
+# Define the global settings dictionary that will hold the current settings in memory.
+# This dictionary is initialized as empty and will be populated when the settings are loaded from the settings file.
 settings: dict[str, str | int | float] = {}
 
 def validate_setting(key: str, value: Any) -> Any:
@@ -64,7 +73,7 @@ def validate_setting(key: str, value: Any) -> Any:
     return value
 
 
-def load_settings(path: Path = SETTINGS_FILE) -> dict[str, str | int | float]:
+def load_settings(path: Path = SETTINGS_FILE_PATH) -> dict[str, str | int | float]:
     """
     Load settings from a JSON file and validate them against the defined valid settings.
     If the file does not exist, it will be created with default settings.
@@ -75,8 +84,8 @@ def load_settings(path: Path = SETTINGS_FILE) -> dict[str, str | int | float]:
 
     # Load settings from the file if it exists
     if path.exists():
-        with path.open("r", encoding="utf-8") as settings_file:
-            data = json.load(settings_file)
+        with path.open("r", encoding="utf-8") as SETTINGS_FILE_PATH:
+            data = json.load(SETTINGS_FILE_PATH)
         if not isinstance(data, dict):
             raise ValueError(f"Settings file must contain a JSON object: {path}")
         loaded_settings = data
@@ -110,7 +119,7 @@ def load_settings(path: Path = SETTINGS_FILE) -> dict[str, str | int | float]:
 
 
 def save_settings(
-    path: Path = SETTINGS_FILE,
+    path: Path = SETTINGS_FILE_PATH,
 ) -> None:
     """
     Save current settings to a JSON file.
@@ -118,5 +127,5 @@ def save_settings(
     If a path is provided, it will save to that path instead (for exporting settings).
     """
  
-    with path.open("w", encoding="utf-8") as settings_file:
-        json.dump(settings, settings_file, indent=4)
+    with path.open("w", encoding="utf-8") as SETTINGS_FILE_PATH:
+        json.dump(settings, SETTINGS_FILE_PATH, indent=4)

@@ -1,12 +1,19 @@
 # Garum
 
-> **Notice:** Garum does not provide medical advice and is not intended to do so.  
+> Garum does not provide medical advice and is not intended to do so.  
 > The sole purpose of Garum is to track data and compute trends related to nutrition.   
 > The app, optionally, displays values derived from guidelines and recommendations published by health organizations and experts.  
 > The values, and from whom to pick them, is entirely at the hands of the user.  
 > Before making any significant lifestyle change, please consult a qualified medical professional.  
 > The app and its creator accept no responsibility for any outcome resulting from the misuse of, or failure to follow, the above guidance.  
 
+<br>
+<br>
+<p align="center">
+<img src="src/assets/logo_white.svg" alt="App logo">
+</p>
+<br>
+<br>
 
 ## Purpose
 

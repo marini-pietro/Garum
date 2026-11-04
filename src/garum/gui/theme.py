@@ -1,7 +1,11 @@
-"""Shared Garum color palettes, Flet theme builders and utility functions."""
+"""
+Shared color palettes, Flet theme builders and utility functions.
+"""
 
+# First-party imports
 from dataclasses import dataclass
 
+# Third-party imports
 import flet as ft
 
 # dataclass decorator is used to automatically generate 
@@ -23,6 +27,7 @@ class ThemePalette:
     icon_surface: str
     hero_gradient: tuple[str, str, str]
 
+# Define light theme palette for the application.
 LIGHT_PALETTE = ThemePalette(
     name="light",
     background="#E8D3B0",
@@ -39,6 +44,7 @@ LIGHT_PALETTE = ThemePalette(
     hero_gradient=("#6F3E24", "#A85D2A", "#C98545"),
 )
 
+# Define dark theme palette for the application.
 DARK_PALETTE = ThemePalette(
     name="dark",
     background="#3A3A3A",
@@ -55,11 +61,13 @@ DARK_PALETTE = ThemePalette(
     hero_gradient=("#161616", "#303030", "#555555"),
 )
 
+# Define a dictionary that maps theme names to their corresponding ThemePalette instances.
 THEME_PALETTES = {
     LIGHT_PALETTE.name: LIGHT_PALETTE,
     DARK_PALETTE.name: DARK_PALETTE,
 }
 
+# Define a global variable to hold the currently active theme palette.
 active_palette: ThemePalette = LIGHT_PALETTE
 
 def get_palette(theme_name: str) -> ThemePalette:
