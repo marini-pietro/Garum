@@ -19,6 +19,9 @@ env/
 .flet/
 build/
 
+# Local database files
+data/*.db
+
 # IDE
 .idea/
 .vscode/

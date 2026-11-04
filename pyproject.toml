@@ -27,10 +27,10 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 
 [tool.flet]
-org = "com.mycompany"
+org = "io.github.marini-pietro"
 product = "garum"
-company = "Flet"
-copyright = "Copyright (C) 2023-2026 by Flet"
+company = "marini-pietro"
+copyright = "Copyright (C) 2023-2026 by marini-pietro"
 
 # src/assets/icon.png is the icon for every platform. Keep it transparent and
 # filling the whole canvas: web, Windows and Linux show it as-is, and Flet
