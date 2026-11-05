@@ -2,12 +2,13 @@
 🇮🇹 <a href="README_IT.md">In italiano</a>
 </p>
 
+> [!IMPORTANT]  
 > Garum does not provide medical advice and is not intended to do so.  
 > The sole purpose of Garum is to track data and compute trends related to nutrition.   
 > The app, optionally, displays values derived from guidelines and recommendations published by health organizations and experts.  
 > The values, and from whom to pick them, is entirely at the hands of the user.  
 > Before making any significant lifestyle change, please consult a qualified medical professional.  
-> The app's creator accept no responsibility for any outcome resulting from the misuse of, or failure to follow, the above guidance.  
+> The app's creator accepts no responsibility for any outcome resulting from the misuse of, or failure to follow, the above guidance.  
 
 <br>
 <h1 align="center">
@@ -184,3 +185,10 @@ Please read the [contributing guide](CONTRIBUTING.md) before opening an issue or
 
 Garum is distributed under the GNU General Public License v3.0.  
 See the [LICENSE](LICENSE.txt) file for details.
+
+## Logo license and origin
+
+The app logo is a derivative work of a [garum mosaik found on wikimedia](https://commons.wikimedia.org/wiki/Category:Garum#/media/File:Garum_Mosaik_Pompeji.JPG) and is licensed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).  
+I just traced the outline, filled it in with a single color and made it into an SVG file.  
+> [!IMPORTANT]  
+> The logo is not final and may be changed in the future.

@@ -6,6 +6,5 @@ Shouldn't contain any code nor ran directly, its purpose is to be discovered by 
 # Import the main entry point from garum.gui.app
 from garum.gui.app import main
 
-
 if __name__ == "__main__":
     main()

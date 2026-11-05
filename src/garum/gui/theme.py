@@ -8,7 +8,8 @@ from dataclasses import dataclass
 # Third-party imports
 import flet as ft
 
-# dataclass decorator is used to automatically generate 
+
+# dataclass decorator is used to automatically generate
 # special methods for the class, such as __init__, __repr__, and __eq__.
 # frozen=True makes the class immutable, meaning that its attributes cannot be modified after creation.
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class ThemePalette:
     sidebar_text: str
     icon_surface: str
     hero_gradient: tuple[str, str, str]
+
 
 # Define light theme palette for the application.
 LIGHT_PALETTE = ThemePalette(
@@ -69,6 +71,7 @@ THEME_PALETTES = {
 
 # Define a global variable to hold the currently active theme palette.
 active_palette: ThemePalette = LIGHT_PALETTE
+
 
 def get_palette(theme_name: str) -> ThemePalette:
     """Return the configured palette, or raise for an unsupported theme."""
