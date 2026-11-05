@@ -2,7 +2,10 @@
 
 import flet as ft
 
+from garum.gui.analytics_page import build_analytics_page
+from garum.gui.catalogue_page import build_catalogue_page
 from garum.gui.settings_page import show_settings
+from garum.gui.today_page import build_today_page
 from garum.gui.theme import (
     DARK_PALETTE,
     LIGHT_PALETTE,
@@ -12,74 +15,56 @@ from garum.gui.theme import (
 from garum.handlers.settings_handler import load_settings, settings
 
 
-def show_home(event: ft.ControlEvent) -> None:
-    """Display the home dialog."""
-    page = event.page
-    page.dialog = ft.AlertDialog(
-        title=ft.Text("Home"),
-        content=ft.Text("Home dialog content goes here."),
-        actions=[
-            ft.TextButton("Close", on_click=lambda _: page.close_dialog()),
-        ],
-    )
-    page.open(page.dialog)
-
-
-async def open_drawer(event: ft.ControlEvent) -> None:
-    """Open the navigation drawer associated with the current page."""
-    await event.page.show_drawer()
-
-
 def main_page(page: ft.Page) -> None:
     """Configure the Garum page and its navigation controls."""
     palette = set_active_palette(str(settings["APP_THEME"]))
 
     page.title = "Garum"
+    page.bgcolor = palette.background
+    page.padding = 0
     page.theme = build_theme(LIGHT_PALETTE)
     page.dark_theme = build_theme(DARK_PALETTE)
     page.theme_mode = (
         ft.ThemeMode.DARK if settings["APP_THEME"] == "dark" else ft.ThemeMode.LIGHT
     )
 
-    page.drawer = ft.NavigationDrawer(
-        controls=[
-            ft.NavigationDrawerDestination(
-                icon=ft.Icons.ARTICLE_ROUNDED,
-                label="Inventory",
-            ),
-            ft.NavigationDrawerDestination(
-                icon=ft.Icons.CALENDAR_TODAY_ROUNDED,
-                label="Calendar",
-            ),
-        ],
-    )
+    destinations = [
+        build_today_page(palette, show_settings),
+        build_catalogue_page(palette),
+        build_analytics_page(palette),
+    ]
+    content = ft.Container(content=destinations[0], expand=True)
 
-    page.appbar = ft.AppBar(
-        bgcolor=palette.appbar,
-        elevation=6,
-        shadow_color=palette.border,
-        shape=ft.RoundedRectangleBorder(radius=32),
-        leading=ft.IconButton(
-            icon=ft.Icons.MENU,
-            icon_color=palette.sidebar_text,
-            key="menu",
-            on_click=open_drawer,
+    def select_page(event: ft.ControlEvent) -> None:
+        """Display the page selected in the bottom navigation bar."""
+        content.content = destinations[event.control.selected_index]
+        page.update()
+
+    page.add(
+        content,
+        ft.NavigationBar(
+            selected_index=0,
+            on_change=select_page,
+            bgcolor=palette.surface,
+            indicator_color=palette.primary,
+            destinations=[
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.TODAY_OUTLINED,
+                    selected_icon=ft.Icons.TODAY,
+                    label="Today",
+                ),
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.INVENTORY_2_OUTLINED,
+                    selected_icon=ft.Icons.INVENTORY_2,
+                    label="Catalogue",
+                ),
+                ft.NavigationBarDestination(
+                    icon=ft.Icons.INSERT_CHART_OUTLINED,
+                    selected_icon=ft.Icons.INSERT_CHART,
+                    label="Analytics",
+                ),
+            ],
         ),
-        title=ft.TextButton(
-            content=ft.Text("Garum", color=palette.sidebar_text),
-            style=ft.ButtonStyle(color=palette.sidebar_text),
-            key="home_text",
-            on_click=show_home,
-        ),
-        center_title=True,
-        actions=[
-            ft.IconButton(
-                icon=ft.Icons.SETTINGS,
-                icon_color=palette.sidebar_text,
-                key="settings",
-                on_click=show_settings,
-            ),
-        ],
     )
 
 

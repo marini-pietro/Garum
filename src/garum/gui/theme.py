@@ -96,33 +96,16 @@ def build_theme(palette: ThemePalette) -> ft.Theme:
         secondary=palette.primary,
         on_secondary=palette.on_surface,
         surface=palette.surface,
+        surface_container=palette.surface_variant,
+        surface_container_high=palette.surface_variant,
+        surface_container_low=palette.surface,
         on_surface=palette.on_surface,
         on_surface_variant=palette.on_surface,
         outline=palette.border,
         error=palette.error,
         on_error="#FFFFFF",
     )
-    appbar_theme = ft.AppBarTheme(
-        color=palette.sidebar_text,
-        bgcolor=palette.appbar,
-        title_text_style=ft.TextStyle(color=palette.sidebar_text),
-        toolbar_text_style=ft.TextStyle(color=palette.sidebar_text),
-    )
-    navigation_drawer_theme = ft.NavigationDrawerTheme(
-        bgcolor=palette.appbar,
-        indicator_color=palette.primary,
-        label_text_style={
-            ft.ControlState.DEFAULT: ft.TextStyle(color=palette.sidebar_text),
-            ft.ControlState.SELECTED: ft.TextStyle(color=palette.sidebar_text),
-        },
-        icon_theme={
-            ft.ControlState.DEFAULT: ft.IconTheme(color=palette.sidebar_text),
-            ft.ControlState.SELECTED: ft.IconTheme(color=palette.sidebar_text),
-        },
-    )
     return ft.Theme(
         color_scheme=colors,
-        appbar_theme=appbar_theme,
-        navigation_drawer_theme=navigation_drawer_theme,
         use_material3=True,
     )

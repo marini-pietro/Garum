@@ -13,7 +13,7 @@ def show_settings(event: ft.ControlEvent) -> None:
         title=ft.Text("Settings"),
         content=ft.Text("Settings dialog content goes here."),
         actions=[
-            ft.TextButton("Close", on_click=lambda _: page.close_dialog()),
+            ft.TextButton("Close", on_click=lambda _: page.pop_dialog()),
         ],
     )
-    page.open(page.dialog)
+    page.show_dialog(page.dialog)
