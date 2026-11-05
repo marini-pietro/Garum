@@ -185,10 +185,3 @@ Please read the [contributing guide](CONTRIBUTING.md) before opening an issue or
 
 Garum is distributed under the GNU General Public License v3.0.  
 See the [LICENSE](LICENSE.txt) file for details.
-
-## Logo license and origin
-
-The app logo is a derivative work of a [garum mosaik found on wikimedia](https://commons.wikimedia.org/wiki/Category:Garum#/media/File:Garum_Mosaik_Pompeji.JPG) and is licensed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).  
-I just traced the outline, filled it in with a single color and made it into an SVG file.  
-> [!IMPORTANT]  
-> The logo is not final and may be changed in the future.
