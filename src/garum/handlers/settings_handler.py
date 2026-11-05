@@ -14,9 +14,15 @@ valid_settings: dict[str, list[str] | callable | int | float] = {
     "APP_THEME": ["light", "dark"],
     "APP_LANGUAGE": ["en", "it"],
     "MEASUREMENT_SYSTEM": ["metric", "imperial"],
-    "USER_WEIGHT": lambda value: isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0,
-    "USER_HEIGHT": lambda value: isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0,
-    "USER_AGE": lambda value: isinstance(value, int) and not isinstance(value, bool) and value > 0,
+    "USER_WEIGHT": lambda value: isinstance(value, (int, float))
+    and not isinstance(value, bool)
+    and value > 0,
+    "USER_HEIGHT": lambda value: isinstance(value, (int, float))
+    and not isinstance(value, bool)
+    and value > 0,
+    "USER_AGE": lambda value: isinstance(value, int)
+    and not isinstance(value, bool)
+    and value > 0,
     "USER_SEX": ["male", "female", "other"],
     "USER_ACTIVITY_LEVEL": [
         "sedentary",
@@ -28,7 +34,7 @@ valid_settings: dict[str, list[str] | callable | int | float] = {
 }
 
 # Define default settings (the default values for each setting)
-# The default settings are used when a setting is missing from the settings file, 
+# The default settings are used when a setting is missing from the settings file,
 #   when a setting has an invalid value and when a new setting file is not present and needs to be created and filled.
 # This dictionary should not contain any settings that are not present in the valid_settings dictionary, as this would cause a ValueError when loading the settings.
 settings_defaults: dict[str, str | int | float] = {
@@ -46,6 +52,7 @@ settings_defaults: dict[str, str | int | float] = {
 # This dictionary is initialized as empty and will be populated when the settings are loaded from the settings file.
 settings: dict[str, str | int | float] = {}
 
+
 def validate_setting(key: str, value: Any) -> Any:
     """
     Validate a setting value based on its key.
@@ -54,7 +61,7 @@ def validate_setting(key: str, value: Any) -> Any:
     Args:
         key (str): The setting key to validate.
         value (Any): The value to validate.
-    
+
     Returns:
         The value if its valid, or the default value for that setting if the value is invalid.
     """
@@ -78,7 +85,7 @@ def load_settings(path: Path = SETTINGS_FILE_PATH) -> dict[str, str | int | floa
     Load settings from a JSON file and validate them against the defined valid settings.
     If the file does not exist, it will be created with default settings.
     """
-    
+
     # Initialize the settings dictionary
     loaded_settings: dict[str, Any] = {}
 
@@ -96,14 +103,14 @@ def load_settings(path: Path = SETTINGS_FILE_PATH) -> dict[str, str | int | floa
 
     # Gather the settings from the file that do not appear in the defaults
     unknown_settings = set(loaded_settings) - set(settings_defaults)
-    if unknown_settings: # If there is at least one unknown setting, raise a ValueError
+    if unknown_settings:  # If there is at least one unknown setting, raise a ValueError
         unknown = ", ".join(sorted(unknown_settings))
         raise ValueError(f"Unknown settings in {path}: {unknown}")
 
     # settings_defaults | loaded_settings creates a copy of the defaults
     # settings and then ovewrite in it each setting that is present in the loaded settings
     # with the value from the loaded settings.
-    # This way we do not require the settings file to contain all the settings, 
+    # This way we do not require the settings file to contain all the settings,
     # and we can add new settings in the future without breaking existing settings files.
     # We then build the validated_settings dictionary by validating each setting in the merged dictionary.
     # This is necessary because the loaded settings may contain settings with an already present key
@@ -113,8 +120,10 @@ def load_settings(path: Path = SETTINGS_FILE_PATH) -> dict[str, str | int | floa
         for key, value in (settings_defaults | loaded_settings).items()
     }
 
-    settings.clear() # Clear the global settings dictionary to remove any previous settings
-    settings.update(validated_settings) # Update the global settings dictionary with the validated settings
+    settings.clear()  # Clear the global settings dictionary to remove any previous settings
+    settings.update(
+        validated_settings
+    )  # Update the global settings dictionary with the validated settings
     return settings.copy()
 
 
@@ -126,6 +135,6 @@ def save_settings(
     If no path is provided, it will save to the default settings file.
     If a path is provided, it will save to that path instead (for exporting settings).
     """
- 
+
     with path.open("w", encoding="utf-8") as SETTINGS_FILE_PATH:
         json.dump(settings, SETTINGS_FILE_PATH, indent=4)

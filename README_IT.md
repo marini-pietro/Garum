@@ -1,3 +1,4 @@
+> [!IMPORTANT]  
 > Garum non fornisce consigli medici nè ne ha l'intenzione.  
 > L' unico scopo di Garum è quello di tracciare dati e calcolare tendenze relative alla nutrizione.  
 > L'app, opzionalmente, mostra valori derivati da linee guida e raccomandazioni pubblicate da organizzazioni sanitarie ed esperti.  
@@ -175,3 +176,9 @@ Si prega di leggere la [guida ai contributi](CONTRIBUTING.md) prima di aprire un
 
 Garum è distribuito sotto la licenza GNU General Public License v3.0.  
 Fare riferimento al file [LICENSE](LICENSE.txt) per i dettagli.  
+
+## Licenza e origine del logo
+
+Il logo dell'app è un'opera derivata da [un mosaico di garum trovato su wikimedia](https://commons.wikimedia.org/wiki/Category:Garum#/media/File:Garum_Mosaik_Pompeji.JPG) concessa in licenza sotto [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).  
+> [!IMPORTANT]  
+> Il logo non è definitivo e potrebbe essere modificato in futuro.

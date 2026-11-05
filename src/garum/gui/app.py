@@ -37,7 +37,9 @@ def main_page(page: ft.Page) -> None:
     page.title = "Garum"
     page.theme = build_theme(LIGHT_PALETTE)
     page.dark_theme = build_theme(DARK_PALETTE)
-    page.theme_mode = ft.ThemeMode.DARK if settings["APP_THEME"] == "dark" else ft.ThemeMode.LIGHT
+    page.theme_mode = (
+        ft.ThemeMode.DARK if settings["APP_THEME"] == "dark" else ft.ThemeMode.LIGHT
+    )
 
     page.drawer = ft.NavigationDrawer(
         controls=[

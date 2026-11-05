@@ -37,21 +37,24 @@ from .models import (
 )
 
 # Define project root and default schema path for the SQLite database.
-# The project root is determined by resolving the current file's path and navigating up three parent directories. 
+# The project root is determined by resolving the current file's path and navigating up three parent directories.
 # The default schema path points to a SQL file that contains the database schema.
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 DEFAULT_SCHEMA_PATH: Path = PROJECT_ROOT / "data" / "db.sql"
+
 
 class SQLiteDatabase:
     """
     Connection and transaction boundary for one SQLite database.
     """
 
-    def __init__(self, database_path: Path, schema_path: Path = DEFAULT_SCHEMA_PATH) -> None:
+    def __init__(
+        self, database_path: Path, schema_path: Path = DEFAULT_SCHEMA_PATH
+    ) -> None:
         """
         Initialize the SQLiteDatabase instance with the provided database and schema paths.
         """
-        
+
         # Store the database and schema paths as Path objects for later use.
         self.database_path = Path(database_path)
         self.schema_path = Path(schema_path)
@@ -67,7 +70,7 @@ class SQLiteDatabase:
         Initialize the SQLite database by creating the database file if it doesn't exist and applying the schema.
         Separate from __init__ to allow for re-initialization and to allows for easier testing and mocking of the database connection.
         Does not reset the database nor delete data on re-initialization (unless the script itself does so, e.g. with DROP TABLE).
-        Re-initialization is only safe when the database is idempotent, i.e. the schema script does not modify existing tables or data 
+        Re-initialization is only safe when the database is idempotent, i.e. the schema script does not modify existing tables or data
         (e.g. because it uses CREATE TABLE IF NOT EXISTS).
         """
 
@@ -76,7 +79,7 @@ class SQLiteDatabase:
         with self.connection() as connection:
             connection.executescript(self.schema_path.read_text(encoding="utf-8"))
 
-    # contextmanager decorator allows this method to be used in a with statement, 
+    # contextmanager decorator allows this method to be used in a with statement,
     # ensuring that the connection is properly closed after use.
     @contextmanager
     def connection(self) -> Iterator[sqlite3.Connection]:
@@ -106,45 +109,51 @@ class SQLiteDatabase:
         finally:
             connection.close()
 
-# Define a generic placeholder type named T that can 
-# be used to represent any type in the RowRepository class. 
-# This allows the repository to be typed for different models 
+
+# Define a generic placeholder type named T that can
+# be used to represent any type in the RowRepository class.
+# This allows the repository to be typed for different models
 # (this does not enforce types at runtime, just helps static type checkers and editors).
 T = TypeVar("T")
 
+
 class RowRepository(Generic[T]):
     """
-    Repository for CRUD operations on a single SQLite table, typed to a specific model 
+    Repository for CRUD operations on a single SQLite table, typed to a specific model
     class with a specific table name using the Generic type system.
     """
 
-    def __init__(self, database: SQLiteDatabase, model_type: type[T], table: str) -> None:
+    def __init__(
+        self, database: SQLiteDatabase, model_type: type[T], table: str
+    ) -> None:
         """
         Initialize the RowRepository instance with the provided database, model type, and table name.
         """
 
-        self.database = database # SQLiteDatabase instance that manages the connection to the SQLite database
-        self.model_type = model_type # dataclass type that represents the structure of the rows in the table
-        self.table = table # name of the table in the SQLite database that corresponds to the model
+        self.database = database  # SQLiteDatabase instance that manages the connection to the SQLite database
+        self.model_type = model_type  # dataclass type that represents the structure of the rows in the table
+        self.table = table  # name of the table in the SQLite database that corresponds to the model
         self._model_columns = tuple(field.name for field in fields(model_type))
-        
+
         # Gather a connection to the database and retrieve the schema metadata for the specified table.
         with self.database.connection() as connection:
-            schema_columns = connection.execute(f"PRAGMA table_info({self.table})").fetchall()
+            schema_columns = connection.execute(
+                f"PRAGMA table_info({self.table})"
+            ).fetchall()
 
         # Use the schema metadata to determine which columns are required (i.e., not nullable) for the specified table
         # and store them in the _required_columns attribute as a tuple of column names so that they can be used later for validation.
         self._required_columns = tuple(
-            row["name"]
-            for row in schema_columns
-            if row["notnull"]
+            row["name"] for row in schema_columns if row["notnull"]
         )
 
-    # * means that the following parameters are keyword-only, i.e. they must 
+    # * means that the following parameters are keyword-only, i.e. they must
     # be specified by name when calling the method.
-    def list(self, *, limit: int = 100, order_by: str | None = None, order_dir: str = "ASC") -> list[T]:
+    def list(
+        self, *, limit: int = 100, order_by: str | None = None, order_dir: str = "ASC"
+    ) -> list[T]:
         """
-        List rows from the table, ordered by the specified column (or by id if not specified), 
+        List rows from the table, ordered by the specified column (or by id if not specified),
         and limited to the specified number of rows.
         """
 
@@ -152,18 +161,26 @@ class RowRepository(Generic[T]):
         if limit < 1:
             raise ValueError("limit must be greater than zero")
 
-        # Determine the column to sort by. If order_by is not specified, use "id" if it exists in the model columns; 
+        # Determine the column to sort by. If order_by is not specified, use "id" if it exists in the model columns;
         # otherwise, use the first column in the model.
-        sort_column = order_by or ("id" if "id" in self._model_columns else self._model_columns[0])
-        if sort_column not in self._model_columns: # check that the specified sort column exists in the model columns
-            raise ValueError(f"invalid order column: {sort_column} (column not found in model {self.model_type.__name__})")
-        
+        sort_column = order_by or (
+            "id" if "id" in self._model_columns else self._model_columns[0]
+        )
+        if (
+            sort_column not in self._model_columns
+        ):  # check that the specified sort column exists in the model columns
+            raise ValueError(
+                f"invalid order column: {sort_column} (column not found in model {self.model_type.__name__})"
+            )
+
         # Validate the order direction. It must be either "ASC" or "DESC" (case-insensitive).
         order_dir = order_dir.upper()
         if order_dir not in ("ASC", "DESC"):
-            raise ValueError(f"invalid order direction: {order_dir} (must be 'ASC' or 'DESC')")
-        
-        # Gather a connection to the database, execute the constructed SQL query and return the rows as a list of model instances. 
+            raise ValueError(
+                f"invalid order direction: {order_dir} (must be 'ASC' or 'DESC')"
+            )
+
+        # Gather a connection to the database, execute the constructed SQL query and return the rows as a list of model instances.
         with self.database.connection() as connection:
             rows = connection.execute(
                 f"SELECT {', '.join(self._model_columns)} FROM {self.table} "
@@ -191,14 +208,14 @@ class RowRepository(Generic[T]):
                 f"SELECT {', '.join(self._model_columns)} FROM {self.table} WHERE id = ?",
                 (row_id,),
             ).fetchone()
-        
+
         return self.model_type.from_row(row) if row is not None else None  # type: ignore[attr-defined]
         # The previous comment suppresses static type-checker warning for the from_row method, the generic type T does not declare a from_row method even though the actual model is expected to provide one.
 
     def create(self, model: T, return_created: bool = False) -> T | None:
         """
         Create a new row in the table from the provided model instance.
-        Returns the created model instance with its id set if return_created is True, 
+        Returns the created model instance with its id set if return_created is True,
         otherwise returns None.
         If required columns are missing, raises a ValueError.
         """
@@ -207,8 +224,7 @@ class RowRepository(Generic[T]):
         # The previous comment suppresses static type-checker warning for the to_record method, the generic type T does not declare a to_record method even though the actual model is expected to provide one.
 
         missing_columns = [
-            column for column in self._required_columns
-            if record.get(column) is None
+            column for column in self._required_columns if record.get(column) is None
         ]
         if missing_columns:
             raise ValueError(
@@ -218,12 +234,12 @@ class RowRepository(Generic[T]):
 
         # Optional None values are omitted so SQLite can apply a column default.
         record = {key: value for key, value in record.items() if value is not None}
-        
+
         # Prepare the SQL query for inserting the new row into the table.
         # The columns and placeholders are constructed from the record dictionary.
         columns = ", ".join(record)
         placeholders = ", ".join(f":{column}" for column in record)
-        
+
         with self.database.connection() as connection:
             cursor = connection.execute(
                 f"INSERT INTO {self.table} ({columns}) VALUES ({placeholders})",
@@ -252,9 +268,9 @@ class RowRepository(Generic[T]):
             return None
 
     def update(self, model: T) -> T:
-        record = model.to_record()  # type: ignore[attr-defined] 
+        record = model.to_record()  # type: ignore[attr-defined]
         # The previous comment suppresses static type-checker warning for the to_record method, the generic type T does not declare a to_record method even though the actual model is expected to provide one.
-        
+
         row_id = getattr(model, "id", None)
         if row_id is None:
             raise ValueError("update requires a model with an id")
@@ -262,7 +278,9 @@ class RowRepository(Generic[T]):
         assignments = ", ".join(f"{column} = :{column}" for column in record)
         record["id"] = row_id
         with self.database.connection() as connection:
-            connection.execute(f"UPDATE {self.table} SET {assignments} WHERE id = :id", record)
+            connection.execute(
+                f"UPDATE {self.table} SET {assignments} WHERE id = :id", record
+            )
             row = connection.execute(
                 f"SELECT {', '.join(self._model_columns)} FROM {self.table} WHERE id = :id",
                 record,
@@ -272,10 +290,11 @@ class RowRepository(Generic[T]):
         return self.model_type.from_row(row)  # type: ignore[attr-defined]
         # The previous comment suppresses static type-checker warning for the from_row method, the generic type T does not declare a from_row method even though the actual model is expected to provide one.
 
-
     def delete(self, row_id: int) -> bool:
         with self.database.connection() as connection:
-            cursor = connection.execute(f"DELETE FROM {self.table} WHERE id = ?", (row_id,))
+            cursor = connection.execute(
+                f"DELETE FROM {self.table} WHERE id = ?", (row_id,)
+            )
         return cursor.rowcount > 0
 
     def delete_where(self, **filters: object) -> bool:
@@ -283,20 +302,22 @@ class RowRepository(Generic[T]):
             raise ValueError("delete_where requires valid model columns")
         clauses = " AND ".join(f"{column} = :{column}" for column in filters)
         with self.database.connection() as connection:
-            cursor = connection.execute(f"DELETE FROM {self.table} WHERE {clauses}", filters)
+            cursor = connection.execute(
+                f"DELETE FROM {self.table} WHERE {clauses}", filters
+            )
         return cursor.rowcount > 0
 
 
-# It inherits from the generic RowRepository class, which provides common CRUD operations 
+# It inherits from the generic RowRepository class, which provides common CRUD operations
 # for any table in the database.
 # This class then adds additional methods specific to the "food_entries" table and provides wrapper methods
 # for common CRUD opearations for convenience and clearer code.
-# The FoodEntryRepository is specifically typed to handle FoodEntry model 
+# The FoodEntryRepository is specifically typed to handle FoodEntry model
 # instances and operates on the "food_entries" table.
 class FoodEntryRepository(RowRepository[FoodEntry]):
     """Repository for historical food diary rows."""
 
-    # * means that the following parameters are keyword-only, i.e. they must 
+    # * means that the following parameters are keyword-only, i.e. they must
     # be specified by name when calling the constructor.
     def __init__(
         self,
@@ -308,7 +329,7 @@ class FoodEntryRepository(RowRepository[FoodEntry]):
             database = SQLiteDatabase(database, schema_path)
         super().__init__(database, FoodEntry, "food_entries")
 
-    # * means that the following parameters are keyword-only, i.e. they must 
+    # * means that the following parameters are keyword-only, i.e. they must
     # be specified by name when calling the method.
     def list_food_entries(self, *, limit: int = 25) -> list[FoodEntry]:
         """
@@ -327,12 +348,16 @@ class FoodEntryRepository(RowRepository[FoodEntry]):
 
     def count_food_entries(self) -> int:
         with self.database.connection() as connection:
-            row = connection.execute("SELECT COUNT(*) AS count FROM food_entries").fetchone()
+            row = connection.execute(
+                "SELECT COUNT(*) AS count FROM food_entries"
+            ).fetchone()
         return int(row["count"])
 
-    # * means that the following parameters are keyword-only, i.e. they must 
+    # * means that the following parameters are keyword-only, i.e. they must
     # be specified by name when calling the method.
-    def create_food_entry(self, entry: FoodEntry, *, return_created: bool = True) -> FoodEntry | None:
+    def create_food_entry(
+        self, entry: FoodEntry, *, return_created: bool = True
+    ) -> FoodEntry | None:
         return self.create(entry, return_created=return_created)  # type: ignore[return-value]
 
     def delete_food_entry(self, entry_id: int) -> bool:
@@ -344,14 +369,18 @@ class FoodEntryRepository(RowRepository[FoodEntry]):
         for entry in entries:
             self.create(entry)
 
+
 # TODO: Add more specific repositories for other tables if needed, following the same pattern as FoodEntryRepository.
+
 
 class Storage:
     """
     Assembles all typed repositories (generic and specific subclasses) into one object for easy access.
     """
 
-    def __init__(self, database_path: Path, *, schema_path: Path = DEFAULT_SCHEMA_PATH) -> None:
+    def __init__(
+        self, database_path: Path, *, schema_path: Path = DEFAULT_SCHEMA_PATH
+    ) -> None:
 
         # Initialize the SQLiteDatabase instance with the provided database and schema paths.
         # This instance will then be passed to each RowRepository to manage the connection to the SQLite database.
@@ -361,7 +390,7 @@ class Storage:
         # specifying the corresponding model type and table name.
         # These repositories will be used to perform CRUD operations on the respective tables.
 
-        # As to not write a block of underable code the parameters are not specified in each 
+        # As to not write a block of underable code the parameters are not specified in each
         # RowRepository constructor, but they follow this pattern:
         # RowRepository(database, ModelType, "table_name_in_the_database")
 
@@ -373,16 +402,24 @@ class Storage:
         self.brands = RowRepository(database, Brand, "brands")
         self.categories = RowRepository(database, Category, "categories")
         self.units = RowRepository(database, Unit, "units")
-        self.sources = RowRepository(database, NutritionRecommendationSource, "nutrition_recommendation_sources")
+        self.sources = RowRepository(
+            database, NutritionRecommendationSource, "nutrition_recommendation_sources"
+        )
         self.foods = RowRepository(database, Food, "foods")
         self.food_categories = RowRepository(database, FoodCategory, "food_categories")
-        self.nutrient_profiles = RowRepository(database, NutrientProfile, "nutrient_profiles")
+        self.nutrient_profiles = RowRepository(
+            database, NutrientProfile, "nutrient_profiles"
+        )
         self.nutrients = RowRepository(database, Nutrient, "nutrients")
         self.nutrient_values = RowRepository(database, NutrientValue, "nutrient_values")
         self.consumptions = RowRepository(database, Consumption, "consumptions")
-        self.suggested_frequencies = RowRepository(database, SuggestedFrequency, "suggested_frequencies")
+        self.suggested_frequencies = RowRepository(
+            database, SuggestedFrequency, "suggested_frequencies"
+        )
         self.recipes = RowRepository(database, Recipe, "recipes")
-        self.recipe_ingredients = RowRepository(database, RecipeIngredient, "recipe_ingredients")
+        self.recipe_ingredients = RowRepository(
+            database, RecipeIngredient, "recipe_ingredients"
+        )
         self.inventory = RowRepository(database, Inventory, "inventory")
         self.food_entries = FoodEntryRepository(database)
         self.stores = RowRepository(database, Store, "stores")
