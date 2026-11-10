@@ -9,7 +9,10 @@ def build_today_page(
     palette: ThemePalette,
     on_settings: ft.ControlEventHandler,
 ) -> ft.Control:
-    """Build the landing window with the settings action in its top-right corner."""
+    """
+    Build today page's widgets with the settings action in the top-right corner.
+    """
+
     return ft.Column(
         expand=True,
         controls=[
@@ -17,10 +20,9 @@ def build_today_page(
                 alignment=ft.MainAxisAlignment.END,
                 controls=[
                     ft.IconButton(
-                        icon=ft.Icons.SETTINGS_OUTLINED,
+                        icon=ft.Icons.SETTINGS,
                         selected_icon=ft.Icons.SETTINGS,
                         icon_color=palette.on_surface,
-                        tooltip="Settings",
                         key="settings",
                         on_click=on_settings,
                     ),

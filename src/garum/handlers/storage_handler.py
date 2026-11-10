@@ -17,15 +17,15 @@ from .models import (
     Brand,
     Category,
     Consumption,
+    DailyNutritionGoal,
     Food,
     FoodCategory,
-    FoodEntry,
+    FoodNutrient,
+    FoodNutrientBase,
     GroceryBill,
     Inventory,
     NutritionRecommendationSource,
     Nutrient,
-    NutrientProfile,
-    NutrientValue,
     PriceHistory,
     Purchase,
     Recipe,
@@ -49,12 +49,15 @@ class SQLiteDatabase:
     """
 
     def __init__(
-        self, database_path: Path, schema_path: Path = DEFAULT_SCHEMA_PATH
+        self, database_path: Path = None, schema_path: Path = DEFAULT_SCHEMA_PATH
     ) -> None:
         """
         Initialize the SQLiteDatabase instance with the provided database and schema paths.
         """
 
+        if database_path is None:
+            database_path = PROJECT_ROOT / "data" / "garum.db"
+            
         # Store the database and schema paths as Path objects for later use.
         self.database_path = Path(database_path)
         self.schema_path = Path(schema_path)
@@ -62,22 +65,188 @@ class SQLiteDatabase:
         # Ensure that the parent directory of the database path exists, creating it if necessary.
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Initialize the SQLite database by creating the database file if it doesn't exist and applying the schema.
+        # Initialize the SQLite database and apply lightweight schema migrations.
         self.initialize()
 
     def initialize(self) -> None:
         """
-        Initialize the SQLite database by creating the database file if it doesn't exist and applying the schema.
-        Separate from __init__ to allow for re-initialization and to allows for easier testing and mocking of the database connection.
-        Does not reset the database nor delete data on re-initialization (unless the script itself does so, e.g. with DROP TABLE).
-        Re-initialization is only safe when the database is idempotent, i.e. the schema script does not modify existing tables or data
-        (e.g. because it uses CREATE TABLE IF NOT EXISTS).
+        Initialize a new SQLite database from the schema.
+        Existing database files are left untouched.
         """
 
-        if not self.schema_path.is_file():
-            raise FileNotFoundError(f"Database schema not found: {self.schema_path}")
+        if not self.database_path.is_file():
+            if not self.schema_path.is_file():
+                raise FileNotFoundError(f"Database schema not found: {self.schema_path}")
+            with self.connection() as connection:
+                connection.executescript(self.schema_path.read_text(encoding="utf-8"))
+            return
+
         with self.connection() as connection:
-            connection.executescript(self.schema_path.read_text(encoding="utf-8"))
+            tables = {
+                row["name"]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            if not tables:
+                if not self.schema_path.is_file():
+                    raise FileNotFoundError(f"Database schema not found: {self.schema_path}")
+                connection.executescript(self.schema_path.read_text(encoding="utf-8"))
+                return
+            if "nutrient_profiles" not in tables:
+                food_nutrient_columns = {
+                    row["name"]
+                    for row in connection.execute("PRAGMA table_info(food_nutrients)")
+                } if "food_nutrients" in tables else set()
+                if food_nutrient_columns and "food_id" not in food_nutrient_columns:
+                    connection.execute("PRAGMA foreign_keys = OFF")
+                    connection.executescript(
+                        """
+                        CREATE TABLE food_nutrients_new (
+                            food_id INTEGER NOT NULL,
+                            base_id INTEGER NOT NULL,
+                            nutrient_type_id INTEGER NOT NULL,
+                            amount REAL NOT NULL CHECK (amount >= 0),
+                            PRIMARY KEY (food_id, nutrient_type_id),
+                            FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE,
+                            FOREIGN KEY (base_id) REFERENCES food_nutrient_bases(id)
+                                ON DELETE CASCADE,
+                            FOREIGN KEY (nutrient_type_id) REFERENCES nutrients(id)
+                                ON DELETE CASCADE
+                        );
+                        INSERT INTO food_nutrients_new
+                            (food_id, base_id, nutrient_type_id, amount)
+                        SELECT b.food_id, n.base_id, n.nutrient_type_id, n.amount
+                        FROM food_nutrients AS n
+                        JOIN food_nutrient_bases AS b ON b.id = n.base_id;
+                        DROP TABLE food_nutrients;
+                        ALTER TABLE food_nutrients_new RENAME TO food_nutrients;
+                        """
+                    )
+                    connection.execute("PRAGMA foreign_keys = ON")
+                return
+
+            nutrient_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(nutrients)")
+            }
+            recommendation_migration = (
+                """
+                INSERT OR IGNORE INTO daily_nutrition_goals
+                    (nutrient_type_id, amount_per_kg, unit_id)
+                SELECT n.id, n.recommendation_per_kg, u.id
+                FROM nutrients AS n
+                JOIN units AS u ON u.code = n.unit
+                WHERE n.recommendation_per_kg IS NOT NULL;
+                """
+                if "recommendation_per_kg" in nutrient_columns
+                else ""
+            )
+
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.executescript(
+                f"""
+                DROP TRIGGER IF EXISTS nutrient_profiles_require_food;
+                DROP TRIGGER IF EXISTS nutrient_profiles_update_require_food;
+                DROP TRIGGER IF EXISTS consumptions_require_food;
+                DROP TRIGGER IF EXISTS consumptions_update_require_food;
+                DROP TRIGGER IF EXISTS food_entries_require_food;
+                DROP TRIGGER IF EXISTS food_entries_update_require_food;
+                DROP TRIGGER IF EXISTS foods_prevent_non_food_dependencies;
+                DROP TABLE IF EXISTS nutrients_new;
+                DROP TABLE IF EXISTS consumptions_new;
+
+                CREATE TABLE nutrients_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT NOT NULL CHECK (type IN ('macronutrient', 'vitamin', 'mineral', 'other')),
+                    code TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    unit TEXT NOT NULL
+                );
+                INSERT INTO nutrients_new (id, type, code, name, unit)
+                SELECT id, type, code, name, unit FROM nutrients;
+
+                CREATE TABLE IF NOT EXISTS daily_nutrition_goals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nutrient_type_id INTEGER NOT NULL,
+                    amount_per_kg REAL NOT NULL CHECK (amount_per_kg >= 0),
+                    unit_id INTEGER NOT NULL,
+                    source_id INTEGER,
+                    FOREIGN KEY (nutrient_type_id) REFERENCES nutrients(id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (unit_id) REFERENCES units(id),
+                    FOREIGN KEY (source_id) REFERENCES nutrition_recommendation_sources(id)
+                        ON DELETE SET NULL,
+                    UNIQUE (nutrient_type_id)
+                );
+                {recommendation_migration}
+                DROP TABLE nutrients;
+                ALTER TABLE nutrients_new RENAME TO nutrients;
+
+                CREATE TABLE IF NOT EXISTS food_nutrient_bases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    food_id INTEGER NOT NULL UNIQUE,
+                    basis_quantity REAL NOT NULL DEFAULT 100 CHECK (basis_quantity > 0),
+                    basis_unit_id INTEGER NOT NULL,
+                    source_id INTEGER,
+                    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE,
+                    FOREIGN KEY (basis_unit_id) REFERENCES units(id),
+                    FOREIGN KEY (source_id) REFERENCES nutrition_recommendation_sources(id)
+                        ON DELETE SET NULL
+                );
+                INSERT OR IGNORE INTO food_nutrient_bases
+                    (id, food_id, basis_quantity, basis_unit_id, source_id)
+                SELECT id, food_id, basis_quantity, basis_unit_id, source_id
+                FROM nutrient_profiles;
+
+                CREATE TABLE IF NOT EXISTS food_nutrients (
+                    food_id INTEGER NOT NULL,
+                    base_id INTEGER NOT NULL,
+                    nutrient_type_id INTEGER NOT NULL,
+                    amount REAL NOT NULL CHECK (amount >= 0),
+                    PRIMARY KEY (food_id, nutrient_type_id),
+                    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE,
+                    FOREIGN KEY (base_id) REFERENCES food_nutrient_bases(id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (nutrient_type_id) REFERENCES nutrients(id)
+                        ON DELETE CASCADE
+                );
+                INSERT OR IGNORE INTO food_nutrients
+                    (food_id, base_id, nutrient_type_id, amount)
+                SELECT p.food_id, p.id, v.nutrient_type_id, v.amount
+                FROM nutrient_values AS v
+                JOIN nutrient_profiles AS p ON p.id = v.profile_id;
+
+                CREATE TABLE consumptions_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    occurred_on TEXT NOT NULL,
+                    meal TEXT NOT NULL,
+                    food_id INTEGER,
+                    recipe_id INTEGER,
+                    quantity REAL CHECK (quantity IS NULL OR quantity > 0),
+                    unit_id INTEGER,
+                    spend_usd REAL NOT NULL CHECK (spend_usd >= 0),
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL,
+                    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL,
+                    FOREIGN KEY (unit_id) REFERENCES units(id),
+                    CHECK (food_id IS NULL OR recipe_id IS NULL)
+                );
+                INSERT INTO consumptions_new
+                    (id, occurred_on, meal, food_id, recipe_id, quantity, unit_id,
+                     spend_usd, notes)
+                SELECT id, occurred_on, meal, food_id, recipe_id, quantity, unit_id,
+                       spend_usd, notes
+                FROM food_entries;
+                DROP TABLE food_entries;
+                DROP TABLE consumptions;
+                ALTER TABLE consumptions_new RENAME TO consumptions;
+
+                DROP TABLE nutrient_values;
+                DROP TABLE nutrient_profiles;
+                """
+            )
+            connection.execute("PRAGMA foreign_keys = ON")
 
     # contextmanager decorator allows this method to be used in a with statement,
     # ensuring that the connection is properly closed after use.
@@ -310,11 +479,11 @@ class RowRepository(Generic[T]):
 
 # It inherits from the generic RowRepository class, which provides common CRUD operations
 # for any table in the database.
-# This class then adds additional methods specific to the "food_entries" table and provides wrapper methods
+# This class then adds additional methods specific to the "consumptions" table and provides wrapper methods
 # for common CRUD opearations for convenience and clearer code.
-# The FoodEntryRepository is specifically typed to handle FoodEntry model
-# instances and operates on the "food_entries" table.
-class FoodEntryRepository(RowRepository[FoodEntry]):
+# The ConsumptionRepository is specifically typed to handle Consumption model
+# instances and operates on the "consumptions" table.
+class ConsumptionRepository(RowRepository[Consumption]):
     """Repository for historical food diary rows."""
 
     # * means that the following parameters are keyword-only, i.e. they must
@@ -327,11 +496,11 @@ class FoodEntryRepository(RowRepository[FoodEntry]):
     ) -> None:
         if not isinstance(database, SQLiteDatabase):
             database = SQLiteDatabase(database, schema_path)
-        super().__init__(database, FoodEntry, "food_entries")
+        super().__init__(database, Consumption, "consumptions")
 
     # * means that the following parameters are keyword-only, i.e. they must
     # be specified by name when calling the method.
-    def list_food_entries(self, *, limit: int = 25) -> list[FoodEntry]:
+    def list_consumptions(self, *, limit: int = 25) -> list[Consumption]:
         """
         List the most recent food diary entries, ordered by occurred_on, created_at, and id descending.
         """
@@ -340,40 +509,40 @@ class FoodEntryRepository(RowRepository[FoodEntry]):
         columns = ", ".join(self._model_columns)
         with self.database.connection() as connection:
             rows = connection.execute(
-                f"SELECT {columns} FROM food_entries "
+                f"SELECT {columns} FROM consumptions "
                 "ORDER BY occurred_on DESC, created_at DESC, id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
-        return [FoodEntry.from_row(row) for row in rows]
+        return [Consumption.from_row(row) for row in rows]
 
-    def count_food_entries(self) -> int:
+    def count_consumptions(self) -> int:
         with self.database.connection() as connection:
             row = connection.execute(
-                "SELECT COUNT(*) AS count FROM food_entries"
+                "SELECT COUNT(*) AS count FROM consumptions"
             ).fetchone()
         return int(row["count"])
 
     # * means that the following parameters are keyword-only, i.e. they must
     # be specified by name when calling the method.
-    def create_food_entry(
-        self, entry: FoodEntry, *, return_created: bool = True
-    ) -> FoodEntry | None:
+    def create_consumption(
+        self, entry: Consumption, *, return_created: bool = True
+    ) -> Consumption | None:
         return self.create(entry, return_created=return_created)  # type: ignore[return-value]
 
-    def delete_food_entry(self, entry_id: int) -> bool:
+    def delete_consumption(self, entry_id: int) -> bool:
         return self.delete(entry_id)
 
-    def seed_if_empty(self, entries: Iterable[FoodEntry]) -> None:
-        if self.count_food_entries() > 0:
+    def seed_if_empty(self, entries: Iterable[Consumption]) -> None:
+        if self.count_consumptions() > 0:
             return
         for entry in entries:
             self.create(entry)
 
 
-# TODO: Add more specific repositories for other tables if needed, following the same pattern as FoodEntryRepository.
+# TODO: Add more specific repositories for other tables if needed, following the same pattern as ConsumptionRepository.
 
 
-class Storage:
+class StorageHandler:
     """
     Assembles all typed repositories (generic and specific subclasses) into one object for easy access.
     """
@@ -407,12 +576,14 @@ class Storage:
         )
         self.foods = RowRepository(database, Food, "foods")
         self.food_categories = RowRepository(database, FoodCategory, "food_categories")
-        self.nutrient_profiles = RowRepository(
-            database, NutrientProfile, "nutrient_profiles"
+        self.food_nutrient_bases = RowRepository(
+            database, FoodNutrientBase, "food_nutrient_bases"
         )
         self.nutrients = RowRepository(database, Nutrient, "nutrients")
-        self.nutrient_values = RowRepository(database, NutrientValue, "nutrient_values")
-        self.consumptions = RowRepository(database, Consumption, "consumptions")
+        self.food_nutrients = RowRepository(database, FoodNutrient, "food_nutrients")
+        self.daily_nutrition_goals = RowRepository(
+            database, DailyNutritionGoal, "daily_nutrition_goals"
+        )
         self.suggested_frequencies = RowRepository(
             database, SuggestedFrequency, "suggested_frequencies"
         )
@@ -421,9 +592,17 @@ class Storage:
             database, RecipeIngredient, "recipe_ingredients"
         )
         self.inventory = RowRepository(database, Inventory, "inventory")
-        self.food_entries = FoodEntryRepository(database)
+        self.consumptions = ConsumptionRepository(database)
         self.stores = RowRepository(database, Store, "stores")
         self.store_items = RowRepository(database, StoreItem, "store_items")
         self.price_history = RowRepository(database, PriceHistory, "price_history")
         self.grocery_bills = RowRepository(database, GroceryBill, "grocery_bills")
         self.purchases = RowRepository(database, Purchase, "purchases")
+
+    @staticmethod
+    def get_reference():
+        """
+        Return a reference to the StorageHandler instance for use in other parts of the application.
+        Used to pass the storage to the GUI without having to pass the database path and schema path around or having to add unnecessary dedicated logic.
+        """
+        return StorageHandler(database_path=PROJECT_ROOT / "data" / "garum.db", schema_path=DEFAULT_SCHEMA_PATH)

@@ -21,6 +21,8 @@ build/
 
 # Local database files
 data/*.db
+data/*.db-shm
+data/*.db-wal
 
 # IDE
 .idea/

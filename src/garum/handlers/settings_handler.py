@@ -13,7 +13,7 @@ SETTINGS_FILE_PATH: Path = PROJECT_ROOT / "settings.json"
 valid_settings: dict[str, list[str] | callable | int | float] = {
     "APP_THEME": ["light", "dark"],
     "APP_LANGUAGE": ["en", "it"],
-    "MEASUREMENT_SYSTEM": ["metric", "imperial"],
+    "MEASUREMENT_SYSTEM": ["metric"], # TODO: add imperial system support in the future
     "USER_WEIGHT": lambda value: isinstance(value, (int, float))
     and not isinstance(value, bool)
     and value > 0,
@@ -84,6 +84,7 @@ def load_settings(path: Path = SETTINGS_FILE_PATH) -> dict[str, str | int | floa
     """
     Load settings from a JSON file and validate them against the defined valid settings.
     If the file does not exist, it will be created with default settings.
+    Returns the validated settings as a dictionary.
     """
 
     # Initialize the settings dictionary

@@ -156,27 +156,21 @@ class FoodCategory:
 
 
 @dataclass(frozen=True, slots=True)
-class NutrientProfile:
+class FoodNutrientBase:
     id: int | None
     food_id: int
     basis_unit_id: int
     basis_quantity: float = 100.0
-    serving_name: str | None = None
-    serving_quantity: float | None = None
-    serving_unit_id: int | None = None
     source_id: int | None = None
 
     @classmethod
-    def from_row(cls, row: Mapping[str, Any] | Any) -> NutrientProfile:
+    def from_row(cls, row: Mapping[str, Any] | Any) -> FoodNutrientBase:
         values = _row_mapping(row)
         return cls(
             values.get("id"),
             values["food_id"],
             values["basis_unit_id"],
             float(values["basis_quantity"]),
-            values.get("serving_name"),
-            values.get("serving_quantity"),
-            values.get("serving_unit_id"),
             values.get("source_id"),
         )
 
@@ -208,16 +202,20 @@ class Nutrient:
 
 
 @dataclass(frozen=True, slots=True)
-class NutrientValue:
-    profile_id: int
+class FoodNutrient:
+    food_id: int
+    base_id: int
     nutrient_type_id: int
     amount: float
 
     @classmethod
-    def from_row(cls, row: Mapping[str, Any] | Any) -> NutrientValue:
+    def from_row(cls, row: Mapping[str, Any] | Any) -> FoodNutrient:
         values = _row_mapping(row)
         return cls(
-            values["profile_id"], values["nutrient_type_id"], float(values["amount"])
+            values["food_id"],
+            values["base_id"],
+            values["nutrient_type_id"],
+            float(values["amount"]),
         )
 
     def to_record(self) -> dict[str, object]:
@@ -225,22 +223,22 @@ class NutrientValue:
 
 
 @dataclass(frozen=True, slots=True)
-class Consumption:
+class DailyNutritionGoal:
     id: int | None
-    food_id: int
-    name: str
-    quantity: float
+    nutrient_type_id: int
+    amount_per_kg: float
     unit_id: int
+    source_id: int | None = None
 
     @classmethod
-    def from_row(cls, row: Mapping[str, Any] | Any) -> Consumption:
+    def from_row(cls, row: Mapping[str, Any] | Any) -> DailyNutritionGoal:
         values = _row_mapping(row)
         return cls(
             values.get("id"),
-            values["food_id"],
-            values["name"],
-            float(values["quantity"]),
+            values["nutrient_type_id"],
+            float(values["amount_per_kg"]),
             values["unit_id"],
+            values.get("source_id"),
         )
 
     def to_record(self) -> dict[str, object]:
@@ -363,66 +361,27 @@ class Inventory:
 
 
 @dataclass(frozen=True, slots=True)
-class FoodEntry:
-    """A snapshot of one consumed food event stored in food_entries."""
+class Consumption:
+    """A food or recipe consumed at a meal."""
 
     id: int | None
     occurred_on: date
     meal: str
-    calories_kcal: float
     spend_usd: float
     food_id: int | None = None
     recipe_id: int | None = None
     quantity: float | None = None
     unit_id: int | None = None
-    protein_g: float = 0.0
-    carbs_g: float = 0.0
-    fat_g: float = 0.0
-    sugar_g: float = 0.0
-    saturated_fat_g: float = 0.0
-    fiber_g: float = 0.0
-    sodium_mg: float = 0.0
-    calcium_mg: float = 0.0
-    iron_mg: float = 0.0
-    magnesium_mg: float = 0.0
-    potassium_mg: float = 0.0
-    vitamin_a_ug: float = 0.0
-    vitamin_c_mg: float = 0.0
-    vitamin_d_ug: float = 0.0
-    vitamin_b12_ug: float = 0.0
-    folate_ug: float = 0.0
     notes: str = ""
     created_at: datetime | None = None
 
     @classmethod
-    def from_row(cls, row: Mapping[str, Any] | Any) -> FoodEntry:
+    def from_row(cls, row: Mapping[str, Any] | Any) -> Consumption:
         values = _row_mapping(row)
-        fields = {
-            field: float(_value(values, field, 0.0))
-            for field in (
-                "protein_g",
-                "carbs_g",
-                "fat_g",
-                "sugar_g",
-                "saturated_fat_g",
-                "fiber_g",
-                "sodium_mg",
-                "calcium_mg",
-                "iron_mg",
-                "magnesium_mg",
-                "potassium_mg",
-                "vitamin_a_ug",
-                "vitamin_c_mg",
-                "vitamin_d_ug",
-                "vitamin_b12_ug",
-                "folate_ug",
-            )
-        }
         return cls(
             values.get("id"),
             _as_date(values["occurred_on"]),
             values["meal"],
-            float(values["calories_kcal"]),
             float(values["spend_usd"]),
             food_id=values.get("food_id"),
             recipe_id=values.get("recipe_id"),
@@ -430,7 +389,6 @@ class FoodEntry:
             unit_id=values.get("unit_id"),
             notes=_value(values, "notes", "") or "",
             created_at=_as_datetime(values.get("created_at")),
-            **fields,
         )
 
     def to_record(self) -> dict[str, object]:
