@@ -554,6 +554,7 @@ class StorageHandler:
         # Initialize the SQLiteDatabase instance with the provided database and schema paths.
         # This instance will then be passed to each RowRepository to manage the connection to the SQLite database.
         database = SQLiteDatabase(database_path, schema_path)
+        self.database = database
 
         # Initialize RowRepository instances for each table in the Garum schema,
         # specifying the corresponding model type and table name.
@@ -598,6 +599,61 @@ class StorageHandler:
         self.price_history = RowRepository(database, PriceHistory, "price_history")
         self.grocery_bills = RowRepository(database, GroceryBill, "grocery_bills")
         self.purchases = RowRepository(database, Purchase, "purchases")
+
+    def calculate_recipe_nutrients(self, recipe_id: int) -> dict[str, float]:
+        """Calculate current nutrient totals for a recipe from its ingredients."""
+
+        if not isinstance(recipe_id, int):
+            raise TypeError("recipe_id must be an integer")
+
+        conversion = """
+            CASE u.kind
+                WHEN 'mass' THEN CASE u.code WHEN 'kg' THEN 1000.0 ELSE 1.0 END
+                WHEN 'volume' THEN CASE u.code WHEN 'l' THEN 1000.0 ELSE 1.0 END
+                ELSE 1.0
+            END
+        """
+        with self.database.connection() as connection:
+            incompatible = connection.execute(
+                """
+                SELECT 1
+                FROM recipe_ingredients AS ri
+                JOIN units AS ingredient_unit ON ingredient_unit.id = ri.unit_id
+                JOIN food_nutrient_bases AS base ON base.food_id = ri.food_id
+                JOIN units AS basis_unit ON basis_unit.id = base.basis_unit_id
+                WHERE ri.recipe_id = ? AND ingredient_unit.kind != basis_unit.kind
+                LIMIT 1
+                """,
+                (recipe_id,),
+            ).fetchone()
+            if incompatible is not None:
+                raise ValueError(
+                    "recipe ingredient and food nutrient basis use incompatible units"
+                )
+
+            rows = connection.execute(
+                f"""
+                SELECT nutrient.code, SUM(
+                    food_nutrient.amount
+                    * ri.quantity * ({conversion.replace("u.", "ingredient_unit.")})
+                    / (base.basis_quantity * ({conversion.replace("u.", "basis_unit.")}))
+                ) AS total
+                FROM recipe_ingredients AS ri
+                JOIN food_nutrient_bases AS base ON base.food_id = ri.food_id
+                JOIN food_nutrients AS food_nutrient
+                    ON food_nutrient.food_id = ri.food_id
+                   AND food_nutrient.base_id = base.id
+                JOIN nutrients AS nutrient
+                    ON nutrient.id = food_nutrient.nutrient_type_id
+                JOIN units AS ingredient_unit ON ingredient_unit.id = ri.unit_id
+                JOIN units AS basis_unit ON basis_unit.id = base.basis_unit_id
+                WHERE ri.recipe_id = ? AND ingredient_unit.kind = basis_unit.kind
+                GROUP BY nutrient.id, nutrient.code
+                """,
+                (recipe_id,),
+            ).fetchall()
+
+        return {row["code"]: float(row["total"]) for row in rows}
 
     @staticmethod
     def get_reference():

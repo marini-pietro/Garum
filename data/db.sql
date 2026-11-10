@@ -86,8 +86,8 @@
 -- Recipes and consumption
 -- -----------------------
 -- recipes
---   One row per prepared dish. A recipe has a serving count and editable
---   nutrition totals, initially calculated from its ingredients.
+--   One row per prepared dish with its serving count. Nutrition totals are
+--   calculated from the current ingredient data when needed.
 --
 -- recipe_ingredients
 --   The many-to-many bridge between recipes and foods. Each row records how
@@ -284,32 +284,13 @@ CREATE TABLE IF NOT EXISTS suggested_frequencies (
 );
 
 -- Table that stores the recipes.
--- Each recipe has a name and a timestamp indicating when it was created.
+-- Each recipe has a name, serving count, and timestamp indicating when it was created.
 -- Recipes are only intended as a quick way for the user to insert data.
 -- Instead of inserting each ingredient separately, the user can create a recipe and then select the recipe to quickly insert all ingredients.
 CREATE TABLE IF NOT EXISTS recipes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE, -- The name is a required string that identifies the recipe.
-    -- Nutrition totals are initialized from ingredients and can be overridden
-    -- when preparation changes the resulting values.
     servings INTEGER NOT NULL DEFAULT 1 CHECK (servings > 0),
-    calories_kcal REAL NOT NULL DEFAULT 0 CHECK (calories_kcal >= 0),
-    protein_g REAL NOT NULL DEFAULT 0 CHECK (protein_g >= 0),
-    carbs_g REAL NOT NULL DEFAULT 0 CHECK (carbs_g >= 0),
-    sugar_g REAL NOT NULL DEFAULT 0 CHECK (sugar_g >= 0 AND sugar_g <= carbs_g),
-    fat_g REAL NOT NULL DEFAULT 0 CHECK (fat_g >= 0),
-    saturated_fat_g REAL NOT NULL DEFAULT 0 CHECK (saturated_fat_g >= 0 AND saturated_fat_g <= fat_g),
-    fiber_g REAL NOT NULL DEFAULT 0 CHECK (fiber_g >= 0),
-    sodium_mg REAL NOT NULL DEFAULT 0 CHECK (sodium_mg >= 0),
-    calcium_mg REAL NOT NULL DEFAULT 0 CHECK (calcium_mg >= 0),
-    iron_mg REAL NOT NULL DEFAULT 0 CHECK (iron_mg >= 0),
-    magnesium_mg REAL NOT NULL DEFAULT 0 CHECK (magnesium_mg >= 0),
-    potassium_mg REAL NOT NULL DEFAULT 0 CHECK (potassium_mg >= 0),
-    vitamin_a_ug REAL NOT NULL DEFAULT 0 CHECK (vitamin_a_ug >= 0),
-    vitamin_c_mg REAL NOT NULL DEFAULT 0 CHECK (vitamin_c_mg >= 0),
-    vitamin_d_ug REAL NOT NULL DEFAULT 0 CHECK (vitamin_d_ug >= 0),
-    vitamin_b12_ug REAL NOT NULL DEFAULT 0 CHECK (vitamin_b12_ug >= 0),
-    folate_ug REAL NOT NULL DEFAULT 0 CHECK (folate_ug >= 0),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

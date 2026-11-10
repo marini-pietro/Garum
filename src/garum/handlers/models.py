@@ -279,36 +279,17 @@ class Recipe:
     id: int | None
     name: str
     servings: int = 1
-    calories_kcal: float = 0.0
-    protein_g: float = 0.0
-    carbs_g: float = 0.0
-    sugar_g: float = 0.0
-    fat_g: float = 0.0
-    saturated_fat_g: float = 0.0
-    fiber_g: float = 0.0
-    sodium_mg: float = 0.0
-    calcium_mg: float = 0.0
-    iron_mg: float = 0.0
-    magnesium_mg: float = 0.0
-    potassium_mg: float = 0.0
-    vitamin_a_ug: float = 0.0
-    vitamin_c_mg: float = 0.0
-    vitamin_d_ug: float = 0.0
-    vitamin_b12_ug: float = 0.0
-    folate_ug: float = 0.0
     created_at: datetime | None = None
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any] | Any) -> Recipe:
         values = _row_mapping(row)
-        fields = {
-            field: _value(values, field, 0.0)
-            for field in cls.__dataclass_fields__
-            if field not in {"id", "name", "created_at"}
-        }
-        fields["servings"] = int(fields["servings"])
-        fields["created_at"] = _as_datetime(values.get("created_at"))
-        return cls(values.get("id"), values["name"], **fields)
+        return cls(
+            values.get("id"),
+            values["name"],
+            int(values.get("servings", 1)),
+            _as_datetime(values.get("created_at")),
+        )
 
     def to_record(self) -> dict[str, object]:
         return _record(self)

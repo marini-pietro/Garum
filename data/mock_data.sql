@@ -166,15 +166,10 @@ JOIN (
 
 -- Recipes and their ingredients
 INSERT OR IGNORE INTO recipes
-    (name, servings, calories_kcal, protein_g, carbs_g, sugar_g, fat_g,
-     saturated_fat_g, fiber_g, sodium_mg, calcium_mg, iron_mg, magnesium_mg,
-     potassium_mg, vitamin_a_ug, vitamin_c_mg, vitamin_d_ug, vitamin_b12_ug,
-     folate_ug)
+    (name, servings)
 VALUES
-    ('Overnight oats', 2, 410, 18.5, 65.0, 18.0, 11.0, 4.5, 9.0,
-     120, 210, 3.5, 105, 650, 80, 12, 1.0, 0.8, 35),
-    ('Chicken rice bowl', 2, 535, 42.0, 55.0, 5.0, 16.0, 3.0, 6.0,
-     380, 90, 3.0, 120, 850, 420, 35, 0.2, 1.2, 90);
+    ('Overnight oats', 2),
+    ('Chicken rice bowl', 2);
 
 INSERT OR IGNORE INTO recipe_ingredients (recipe_id, food_id, quantity, unit_id)
 SELECT r.id, f.id, i.quantity, u.id

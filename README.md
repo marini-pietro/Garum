@@ -36,7 +36,7 @@ Each record has attributes like price or name but only food items will feature i
 When updating the inventory (e.g. after buying groceries) the user can choose a product from the catalogue or manually describe one if it's not in the knowledge base (the user will then have the option to add it to the knowledge base).
 
 **Recipes**: records about recipes and the ingredients necessary to make them.  
-By default the recipes will contain nutrient info as the sum of the ingredients but the values are modifiable by the user (e.g. some ingredients lose part of their nutritional values when cooked in some manners).  
+Recipe nutrient totals are calculated from the current ingredient data when needed, so changes to food nutrition are reflected automatically.
 It is also possible to see all the recipes the user can make with the items tracked in the inventory.
 
 **Nutrition tracking**: records about the meals consumed by the user.  
