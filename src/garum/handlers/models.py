@@ -21,19 +21,19 @@ def _value(row: Mapping[str, Any], key: str, default: Any = None) -> Any:
     return default if value is None and default is not None else value
 
 
-# Convert a value to a datetime object, accepting either a datetime or an ISO 8601 string.
+# Helper function to convert a value to a datetime object, accepting either a datetime or an ISO 8601 string.
 def _as_datetime(value: datetime | str | None) -> datetime | None:
     if value is None or isinstance(value, datetime):
         return value
     return datetime.fromisoformat(value)
 
 
-# Convert a value to a date object, accepting either a date or an ISO 8601 string.
+# Helper function to convert a value to a date object, accepting either a date or an ISO 8601 string.
 def _as_date(value: date | str) -> date:
     return value if isinstance(value, date) else date.fromisoformat(value)
 
 
-# Convert a dataclass instance to a dictionary suitable for database insertion or update.
+# Helper function to convert a dataclass instance to a dictionary suitable for database insertion or update.
 def _record(instance: Any) -> dict[str, object]:
     values = asdict(instance)
     values.pop("id", None)
@@ -42,8 +42,8 @@ def _record(instance: Any) -> dict[str, object]:
             values[key] = value.isoformat()
     return values
 
-
-# --- dataclass definitions for various database row models follow, each with methods to convert from a database row and to a record dictionary.
+# -------------------------------------------------------------------------------------------------------------------------------------------------
+#     dataclass definitions for various database row models follow, each with methods to convert from a database row and to a record dictionary.
 #     frozen=True makes the instances immutable, and slots=True optimizes memory usage by preventing the creation of a __dict__ for each instance.
 #     @classmethod makes from_row a class method rather than an instance method, making it possible to create an instance of the class from a database
 #     row without needing an existing instance.

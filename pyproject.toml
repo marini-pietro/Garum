@@ -8,17 +8,18 @@ authors = [
     { name = "marini-pietro", email = "pietromarinivr2006@gmail.com" }
 ]
 dependencies = [
-    "flet>=1.0.4"
+    "flet==1.1.2",
+    "flet-datatable2==1.1.2"
 ]
 
 [dependency-groups]
 dev = [
-    "flet-cli>=1.0.4",
-    "flet-desktop>=1.0.4",
-    "flet-web>=1.0.4",
+    "flet-cli>=1.1.2",
+    "flet-desktop>=1.1.2",
+    "flet-web>=1.1.2",
     # Integration testing with `flet test` / pytest. The `test` extra brings in
     # pytest, pytest-asyncio and the screenshot-comparison dependencies.
-    "flet[test]>=1.0.4",
+    "flet[test]>=1.1.2",
 ]
 
 [tool.pytest.ini_options]

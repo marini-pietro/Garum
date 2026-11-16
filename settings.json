@@ -2,6 +2,7 @@
   "APP_THEME": "dark",
   "APP_LANGUAGE": "en",
   "MEASUREMENT_SYSTEM": "metric",
+  "ENABLE_ADVERTISEMENTS": false,
   "USER_WEIGHT": 70.0,
   "USER_HEIGHT": 170.0,
   "USER_AGE": 30,

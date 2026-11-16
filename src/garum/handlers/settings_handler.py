@@ -13,7 +13,8 @@ SETTINGS_FILE_PATH: Path = PROJECT_ROOT / "settings.json"
 valid_settings: dict[str, list[str] | callable | int | float] = {
     "APP_THEME": ["light", "dark"],
     "APP_LANGUAGE": ["en", "it"],
-    "MEASUREMENT_SYSTEM": ["metric"], # TODO: add imperial system support in the future
+    "MEASUREMENT_SYSTEM": ["metric"],  # TODO: add imperial system support in the future
+    "ENABLE_ADVERTISEMENTS": lambda value: isinstance(value, bool),
     "USER_WEIGHT": lambda value: isinstance(value, (int, float))
     and not isinstance(value, bool)
     and value > 0,
@@ -41,6 +42,7 @@ settings_defaults: dict[str, str | int | float] = {
     "APP_THEME": "light",
     "APP_LANGUAGE": "en",
     "MEASUREMENT_SYSTEM": "metric",
+    "ENABLE_ADVERTISEMENTS": False,
     "USER_WEIGHT": 70.0,
     "USER_HEIGHT": 170.0,
     "USER_AGE": 30,

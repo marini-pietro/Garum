@@ -8,7 +8,6 @@ from dataclasses import dataclass
 # Third-party imports
 import flet as ft
 
-
 # dataclass decorator is used to automatically generate
 # special methods for the class, such as __init__, __repr__, and __eq__.
 # frozen=True makes the class immutable, meaning that its attributes cannot be modified after creation.
@@ -78,7 +77,7 @@ def get_palette(theme_name: str) -> ThemePalette:
     try:
         return THEME_PALETTES[theme_name]
     except KeyError as error:
-        raise ValueError(f"Unknown theme: {theme_name}") from error
+        raise ValueError(f"Unknown theme name: {theme_name}") from error
 
 
 def set_active_palette(theme_name: str) -> ThemePalette:
@@ -105,6 +104,7 @@ def build_theme(palette: ThemePalette) -> ft.Theme:
         error=palette.error,
         on_error="#FFFFFF",
     )
+    
     return ft.Theme(
         color_scheme=colors,
         use_material3=True,

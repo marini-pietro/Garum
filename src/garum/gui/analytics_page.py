@@ -12,7 +12,9 @@ def build_analytics_page(palette: ThemePalette) -> ft.Control:
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             alignment=ft.MainAxisAlignment.CENTER,
             controls=[
-                ft.Text("Price & Nutrition Analytics", size=28, weight=ft.FontWeight.BOLD),
+                ft.Text(
+                    "Price & Nutrition Analytics", size=28, weight=ft.FontWeight.BOLD
+                ),
                 ft.Text(
                     "Review spending and nutrition trends over time.",
                     color=palette.muted,

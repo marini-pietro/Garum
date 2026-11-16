@@ -57,7 +57,7 @@ class SQLiteDatabase:
 
         if database_path is None:
             database_path = PROJECT_ROOT / "data" / "garum.db"
-            
+
         # Store the database and schema paths as Path objects for later use.
         self.database_path = Path(database_path)
         self.schema_path = Path(schema_path)
@@ -76,7 +76,9 @@ class SQLiteDatabase:
 
         if not self.database_path.is_file():
             if not self.schema_path.is_file():
-                raise FileNotFoundError(f"Database schema not found: {self.schema_path}")
+                raise FileNotFoundError(
+                    f"Database schema not found: {self.schema_path}"
+                )
             with self.connection() as connection:
                 connection.executescript(self.schema_path.read_text(encoding="utf-8"))
             return
@@ -90,18 +92,25 @@ class SQLiteDatabase:
             }
             if not tables:
                 if not self.schema_path.is_file():
-                    raise FileNotFoundError(f"Database schema not found: {self.schema_path}")
+                    raise FileNotFoundError(
+                        f"Database schema not found: {self.schema_path}"
+                    )
                 connection.executescript(self.schema_path.read_text(encoding="utf-8"))
                 return
             if "nutrient_profiles" not in tables:
-                food_nutrient_columns = {
-                    row["name"]
-                    for row in connection.execute("PRAGMA table_info(food_nutrients)")
-                } if "food_nutrients" in tables else set()
+                food_nutrient_columns = (
+                    {
+                        row["name"]
+                        for row in connection.execute(
+                            "PRAGMA table_info(food_nutrients)"
+                        )
+                    }
+                    if "food_nutrients" in tables
+                    else set()
+                )
                 if food_nutrient_columns and "food_id" not in food_nutrient_columns:
                     connection.execute("PRAGMA foreign_keys = OFF")
-                    connection.executescript(
-                        """
+                    connection.executescript("""
                         CREATE TABLE food_nutrients_new (
                             food_id INTEGER NOT NULL,
                             base_id INTEGER NOT NULL,
@@ -121,13 +130,13 @@ class SQLiteDatabase:
                         JOIN food_nutrient_bases AS b ON b.id = n.base_id;
                         DROP TABLE food_nutrients;
                         ALTER TABLE food_nutrients_new RENAME TO food_nutrients;
-                        """
-                    )
+                        """)
                     connection.execute("PRAGMA foreign_keys = ON")
                 return
 
             nutrient_columns = {
-                row["name"] for row in connection.execute("PRAGMA table_info(nutrients)")
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(nutrients)")
             }
             recommendation_migration = (
                 """
@@ -143,8 +152,7 @@ class SQLiteDatabase:
             )
 
             connection.execute("PRAGMA foreign_keys = OFF")
-            connection.executescript(
-                f"""
+            connection.executescript(f"""
                 DROP TRIGGER IF EXISTS nutrient_profiles_require_food;
                 DROP TRIGGER IF EXISTS nutrient_profiles_update_require_food;
                 DROP TRIGGER IF EXISTS consumptions_require_food;
@@ -244,8 +252,7 @@ class SQLiteDatabase:
 
                 DROP TABLE nutrient_values;
                 DROP TABLE nutrient_profiles;
-                """
-            )
+                """)
             connection.execute("PRAGMA foreign_keys = ON")
 
     # contextmanager decorator allows this method to be used in a with statement,
@@ -661,4 +668,7 @@ class StorageHandler:
         Return a reference to the StorageHandler instance for use in other parts of the application.
         Used to pass the storage to the GUI without having to pass the database path and schema path around or having to add unnecessary dedicated logic.
         """
-        return StorageHandler(database_path=PROJECT_ROOT / "data" / "garum.db", schema_path=DEFAULT_SCHEMA_PATH)
+        return StorageHandler(
+            database_path=PROJECT_ROOT / "data" / "garum.db",
+            schema_path=DEFAULT_SCHEMA_PATH,
+        )
